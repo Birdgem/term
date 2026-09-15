@@ -228,7 +228,42 @@
             #mobileTradeDock .trade-input { min-height: 42px; font-size: 13px; }
             #mobileTradeDock .trade-btn { min-height: 46px; font-size: 13px; }
             #mobileTradeDock { box-shadow: 0 -10px 30px rgba(0,0,0,.45); }
+
+            /* Stage 5.1 mobile header: keep the important actions visible. */
+            #topHeader > div:first-child { min-width: 0; }
+            #topHeader > div:first-child > div:first-child { min-width: 0; flex: 1 1 auto; }
+            #symbolDropdownBtn { min-width: 112px !important; }
+            #dominanceDropdownBtn { max-width: 132px; padding-left: 8px !important; padding-right: 7px !important; }
+            #domBadgeText { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            #headerWsBadge { display:none !important; }
+            #openHelpBtn { display:none !important; }
+            #refreshBtn, #openMobileAnalyticsBtn { flex: 0 0 34px; width:34px; height:34px; padding:0 !important; }
+            #openMobileAnalyticsBtn span { display:none !important; }
+            #refreshBtn svg, #openMobileAnalyticsBtn svg { width:17px; height:17px; }
+            #refreshBtn { border-color: rgba(247,166,0,.45); background: rgba(247,166,0,.08); }
+
+            /* Bybit-like mobile candles: fewer, wider bars with more breathing room. */
+            #priceChartContainer { min-height: 330px; }
+            #priceChartContainer .tv-lightweight-charts { touch-action: pan-x pan-y; }
+
+            /* Always-accessible analytics shortcut, independent of header width. */
+            #mobileAnalyticsFab {
+                display:flex; position:fixed; right:10px; bottom:calc(156px + env(safe-area-inset-bottom));
+                width:42px; height:42px; z-index:55; align-items:center; justify-content:center;
+                border:1px solid rgba(247,166,0,.55); border-radius:12px;
+                background:rgba(22,27,34,.94); color:#f7a600;
+                box-shadow:0 8px 24px rgba(0,0,0,.4);
+                backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+            }
+            body.mobile-trade-collapsed #mobileAnalyticsFab { bottom:calc(72px + env(safe-area-inset-bottom)); }
+
+            /* Keep the chart visually dominant on small screens. */
+            #chartsArea { background:#0d1117; }
+            #volumeChartContainer { height:100px !important; }
+            #rsiChartContainer { height:105px !important; }
+            #macdChartContainer { height:115px !important; }
         }
+        @media (min-width:768px) { #mobileAnalyticsFab { display:none !important; } }
 </style>
 </head>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
@@ -586,6 +621,11 @@
         </div>
     </div>
 
+    <button id="mobileAnalyticsFab" class="md:hidden" aria-label="Открыть аналитику" title="Авто-анализ">
+        <i data-lucide="cpu" class="w-5 h-5"></i>
+        <span id="mobileFabPatternBadge" class="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-bybit-yellow text-black text-[9px] font-black flex items-center justify-center">0</span>
+    </button>
+
     <!-- Mobile Analytics Drawer -->
     <div id="mobileAnalyticsDrawer" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex flex-col justify-end md:hidden">
         <div class="bg-bybit-card border-t border-bybit-border rounded-t-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
@@ -884,6 +924,10 @@
                     timeVisible: showTimeScale,
                     secondsVisible: false,
                     visible: showTimeScale,
+                    barSpacing: window.innerWidth < 768 ? 7.2 : 6.5,
+                    minBarSpacing: window.innerWidth < 768 ? 3.5 : 2,
+                    maxBarSpacing: 16,
+                    rightOffset: 3,
                 },
                 handleScale: true,
                 handleScroll: true,
@@ -908,6 +952,9 @@
                 borderUpColor: '#0ecb81',
                 wickDownColor: '#f6465d',
                 wickUpColor: '#0ecb81',
+                borderVisible: true,
+                wickVisible: true,
+                priceLineVisible: true,
                 priceFormat: {
                     type: 'custom',
                     minMove: 0.00000001,
@@ -1314,18 +1361,27 @@
                 updateIndicatorVisibility();
             });
 
-            document.getElementById('refreshBtn').addEventListener('click', () => {
+            document.getElementById('refreshBtn').addEventListener('click', async () => {
                 const icon = document.getElementById('refreshIcon');
                 if (icon) icon.classList.add('animate-spin');
-                fetchBybitTickers();
-                fetchData().finally(() => {
+                try {
+                    await fetchBybitTickers();
+                    await fetchData();
+                    // A manual refresh is also a clean market-stream reset.
+                    connectWebSocket('auto');
+                } finally {
                     setTimeout(() => { if (icon) icon.classList.remove('animate-spin'); }, 500);
-                });
+                }
             });
 
             const mobileDrawer = document.getElementById('mobileAnalyticsDrawer');
-            document.getElementById('openMobileAnalyticsBtn').addEventListener('click', () => mobileDrawer.classList.remove('hidden'));
+            const openAnalytics = () => mobileDrawer.classList.remove('hidden');
+            document.getElementById('openMobileAnalyticsBtn').addEventListener('click', openAnalytics);
+            document.getElementById('mobileAnalyticsFab').addEventListener('click', openAnalytics);
             document.getElementById('closeMobileAnalyticsBtn').addEventListener('click', () => mobileDrawer.classList.add('hidden'));
+            mobileDrawer.addEventListener('click', (e) => {
+                if (e.target === mobileDrawer) mobileDrawer.classList.add('hidden');
+            });
 
             const helpModal = document.getElementById('helpModal');
             document.getElementById('openHelpBtn').addEventListener('click', () => helpModal.classList.remove('hidden'));
@@ -1666,6 +1722,21 @@
 
                 candleSeries.setData(rawCandles);
                 setVolumeData(rawCandles);
+
+                // Do not squeeze all 200 candles into a phone screen. Bybit-style view
+                // keeps a useful recent window with readable candle bodies.
+                requestAnimationFrame(() => {
+                    try {
+                        const visibleBars = window.innerWidth < 768 ? 72 : 110;
+                        const from = Math.max(0, rawCandles.length - visibleBars);
+                        chart.timeScale().setVisibleLogicalRange({
+                            from,
+                            to: rawCandles.length + 2
+                        });
+                    } catch (e) {
+                        try { chart.timeScale().fitContent(); } catch (_) {}
+                    }
+                });
 
                 await fetchOrderBookWalls();
                 fetchLongShortRatio();
