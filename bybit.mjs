@@ -159,9 +159,16 @@ export async function closePartialPosition(symbol, positionIdx = 0, percent = 10
   const pos = list.find(p => Number(p.positionIdx) === Number(positionIdx) && Number(p.size) > 0);
   if (!pos) throw new Error(`No open position for ${String(symbol).toUpperCase()} positionIdx=${positionIdx}`);
   const rawQty = Number(pos.size) * pct / 100;
-  const step = Number(pos.qtyStep || 0);
+  let step = Number(pos.qtyStep || 0);
+  let minQty = Number(pos.minOrderQty || 0);
+  if (!(step > 0)) {
+    const inst = await getInstrument(symbol);
+    const f = inst?.result?.list?.[0]?.lotSizeFilter || {};
+    step = Number(f.qtyStep || 0);
+    minQty = Number(f.minOrderQty || minQty || 0);
+  }
   const qty = step > 0 ? Math.floor((rawQty + 1e-12) / step) * step : rawQty;
-  if (!(qty > 0)) throw new Error('Partial close is below the instrument qty step');
+  if (!(qty > 0) || (minQty > 0 && qty < minQty)) throw new Error('Partial close is below the instrument minimum qty/step');
   const side = pos.side === 'Buy' ? 'Sell' : 'Buy';
   return placeOrder({ symbol, side, orderType: 'Market', qty: String(qty), positionIdx, reduceOnly: true, closeOnTrigger: true });
 }

@@ -266,6 +266,33 @@
         @media (max-width:767px) {
             #mobilePositionManager { display:block; }
         }
+
+        /* Stage 5.7 mobile workspace: Trade / Position / Orders are separate views. */
+        .mobile-tool-drawer { position:fixed; left:0; right:0; bottom:0; z-index:55; background:rgba(13,17,23,.98); backdrop-filter:blur(14px); border-top:1px solid #30363d; box-shadow:0 -16px 40px rgba(0,0,0,.55); padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
+        .mobile-tool-drawer.hidden { display:none !important; }
+        .mobile-tool-tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; padding:7px; border-bottom:1px solid #21262d; background:#161b22; }
+        .mobile-tool-tab { min-height:34px; border:1px solid #30363d; border-radius:8px; background:#0d1117; color:#8b949e; font:900 10px ui-monospace,monospace; touch-action:manipulation; }
+        .mobile-tool-tab.active { color:#f7a600; border-color:rgba(247,166,0,.55); background:rgba(247,166,0,.08); }
+        .mobile-tool-close { width:34px; min-width:34px; height:34px; border:1px solid #30363d; border-radius:8px; background:#0d1117; color:#8b949e; }
+        .mobile-order-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; padding:8px; border:1px solid #30363d; border-radius:9px; background:#0d1117; }
+        .mobile-order-main { min-width:0; }
+        .mobile-order-title { display:flex; gap:6px; align-items:center; font:900 10px ui-monospace,monospace; }
+        .mobile-order-meta { margin-top:3px; color:#8b949e; font:600 9px ui-monospace,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .mobile-order-cancel { min-width:42px; border:1px solid rgba(248,81,73,.35); border-radius:7px; color:#f85149; background:#161b22; font:900 9px ui-monospace,monospace; }
+        .mobile-order-empty { padding:18px 8px; text-align:center; color:#8b949e; font:600 10px ui-monospace,monospace; }
+        @media (max-width:767px) {
+            body { padding-bottom:210px; }
+            body.mobile-trade-collapsed { padding-bottom:54px; }
+            #mobileTradeDock { z-index:40; }
+            #mobileTradeDock .mobile-trade-body { max-height:190px; overflow-y:auto; }
+            #mobileTradeDock .trade-preview { padding:4px 6px; }
+            #mobileTradeDock .trade-input { min-height:38px; }
+            #mobileTradeDock .trade-btn { min-height:42px; }
+            #mobilePositionManager { display:none !important; }
+            #mobileToolDrawer { max-height:72svh; }
+            #mobileToolDrawer .drawer-scroll { max-height:calc(72svh - 52px); overflow-y:auto; }
+        }
+
         .realtime-flash { animation: realtimeFlash .18s ease-out; }
         @keyframes realtimeFlash { 0% { opacity:.65; } 100% { opacity:1; } }
         @media (max-width:767px) {
@@ -656,6 +683,8 @@
                     <span id="mobilePositionCard" class="text-[9px] font-mono text-bybit-muted truncate">Нет позиции</span>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="mobilePositionTabBtn" class="trade-quick px-2">POS</button>
+                    <button id="mobileOrdersTabBtn" class="trade-quick px-2">ORD</button>
                     <button id="mobileTradeToggleBtn" class="mobile-trade-toggle bg-bybit-bg border border-bybit-border text-bybit-muted" title="Свернуть торговую панель">
                         <i data-lucide="chevron-down" class="w-4 h-4"></i>
                     </button>
@@ -681,38 +710,6 @@
                     <div><span class="k">Номинал</span><span id="mobilePreviewNotional" class="v">—</span></div>
                     <div><span class="k">TP PnL</span><span id="mobilePreviewTpPnl" class="v">—</span></div>
                     <div><span class="k">SL PnL</span><span id="mobilePreviewSlPnl" class="v">—</span></div>
-                </div>
-                <div id="mobilePositionManager" class="position-manager hidden space-y-1.5">
-                    <div class="flex items-center justify-between gap-2">
-                        <div class="text-[9px] font-black text-bybit-yellow uppercase">Позиция</div>
-                        <div id="mobilePositionPnl" class="text-[10px] font-black font-mono">—</div>
-                    </div>
-                    <div class="position-manager-grid">
-                        <div class="position-manager-stat"><span class="k">Размер</span><span id="mobilePosSize" class="v">—</span></div>
-                        <div class="position-manager-stat"><span class="k">Вход</span><span id="mobilePosAvg" class="v">—</span></div>
-                        <div class="position-manager-stat"><span class="k">Mark</span><span id="mobilePosMark" class="v">—</span></div>
-                    </div>
-                    <div class="position-manager-grid">
-                        <div class="position-manager-stat"><span class="k">TP</span><span id="mobilePosTp" class="v">—</span></div>
-                        <div class="position-manager-stat"><span class="k">SL</span><span id="mobilePosSl" class="v">—</span></div>
-                        <div class="position-manager-stat"><span class="k">Trailing</span><span id="mobilePosTs" class="v">—</span></div>
-                    </div>
-                    <div class="position-manager-actions">
-                        <button class="position-action" data-partial-close="25">25%</button>
-                        <button class="position-action" data-partial-close="50">50%</button>
-                        <button class="position-action" data-partial-close="75">75%</button>
-                        <button class="position-action danger" data-partial-close="100">CLOSE 100%</button>
-                    </div>
-                    <div class="position-manager-fields">
-                        <input id="mobilePosTPInput" class="trade-input" type="number" step="any" placeholder="Новый TP">
-                        <input id="mobilePosSLInput" class="trade-input" type="number" step="any" placeholder="Новый SL">
-                    </div>
-                    <div class="position-manager-actions">
-                        <button id="mobileApplyPositionRisk" class="position-action good">ПРИМЕНИТЬ TP/SL</button>
-                        <button id="mobileCancelPositionRisk" class="position-action">СБРОСИТЬ TP/SL</button>
-                        <button id="mobileTrailingPreset" class="position-action warn">TS 0.5%</button>
-                        <button id="mobileCancelTrailing" class="position-action">TS OFF</button>
-                    </div>
                 </div>
                 <div class="mobile-trade-row compact">
                     <input id="mobileMargin" class="trade-input" type="number" min="0" step="0.01" value="5" placeholder="Маржа USDT">
@@ -742,6 +739,61 @@
                     <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
                 </div>
                 <div id="mobileTradeStatus" class="trade-status text-[9px] font-mono text-bybit-muted truncate"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Position / Orders Drawer -->
+    <div id="mobileToolDrawer" class="mobile-tool-drawer hidden md:hidden">
+        <div class="mobile-tool-tabs">
+            <button id="mobileToolPositionTab" class="mobile-tool-tab active">ПОЗИЦИЯ</button>
+            <button id="mobileToolOrdersTab" class="mobile-tool-tab">ОРДЕРА</button>
+            <button id="mobileToolClose" class="mobile-tool-close">✕</button>
+        </div>
+        <div id="mobilePositionView" class="drawer-scroll p-2.5 space-y-1.5">
+            <div class="position-manager">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="text-[10px] font-black text-bybit-yellow uppercase">Позиция</div>
+                    <div id="mobilePositionPnl" class="text-[11px] font-black font-mono">—</div>
+                </div>
+                <div class="position-manager-grid mt-1.5">
+                    <div class="position-manager-stat"><span class="k">Размер</span><span id="mobilePosSize" class="v">—</span></div>
+                    <div class="position-manager-stat"><span class="k">Вход</span><span id="mobilePosAvg" class="v">—</span></div>
+                    <div class="position-manager-stat"><span class="k">Mark</span><span id="mobilePosMark" class="v">—</span></div>
+                </div>
+                <div class="position-manager-grid mt-1.5">
+                    <div class="position-manager-stat"><span class="k">TP</span><span id="mobilePosTp" class="v">—</span></div>
+                    <div class="position-manager-stat"><span class="k">SL</span><span id="mobilePosSl" class="v">—</span></div>
+                    <div class="position-manager-stat"><span class="k">Trailing</span><span id="mobilePosTs" class="v">—</span></div>
+                </div>
+                <div class="position-manager-actions mt-1.5">
+                    <button class="position-action" data-partial-close="25">25%</button>
+                    <button class="position-action" data-partial-close="50">50%</button>
+                    <button class="position-action" data-partial-close="75">75%</button>
+                    <button class="position-action danger" data-partial-close="100">CLOSE 100%</button>
+                </div>
+                <div class="position-manager-fields mt-1.5">
+                    <input id="mobilePosTPInput" class="trade-input" type="number" step="any" placeholder="Новый TP">
+                    <input id="mobilePosSLInput" class="trade-input" type="number" step="any" placeholder="Новый SL">
+                </div>
+                <div class="position-manager-actions mt-1.5">
+                    <button id="mobileApplyPositionRisk" class="position-action good">ПРИМЕНИТЬ TP/SL</button>
+                    <button id="mobileCancelPositionRisk" class="position-action">СБРОСИТЬ TP/SL</button>
+                    <button id="mobileTrailingPreset" class="position-action warn">TS 0.5%</button>
+                    <button id="mobileCancelTrailing" class="position-action">TS OFF</button>
+                </div>
+            </div>
+            <div id="mobilePositionEmpty" class="mobile-order-empty hidden">Открытой позиции нет</div>
+        </div>
+        <div id="mobileOrdersView" class="drawer-scroll p-2.5 space-y-1.5 hidden">
+            <div class="flex items-center justify-between gap-2">
+                <div class="text-[10px] font-black text-bybit-yellow">АКТИВНЫЕ ОРДЕРА</div>
+                <button id="mobileCancelAllOrders" class="position-action danger">CANCEL ALL</button>
+            </div>
+            <div id="mobileOrdersList" class="space-y-1.5"><div class="mobile-order-empty">Загрузка ордеров...</div></div>
+            <div class="border-t border-bybit-border pt-2 mt-2">
+                <div class="text-[9px] font-black text-bybit-muted mb-1">ПОСЛЕДНИЕ ИСПОЛНЕНИЯ</div>
+                <div id="mobileOrderHistoryList" class="space-y-1.5"><div class="mobile-order-empty">Загрузка истории...</div></div>
             </div>
         </div>
     </div>
@@ -1632,8 +1684,8 @@
         function renderPosition(pos) {
             tradeState.position = pos;
             const has = pos && Number(pos.size) > 0;
-            const pm = document.getElementById('mobilePositionManager');
-            if (pm) pm.classList.toggle('hidden', !has);
+            const empty = document.getElementById('mobilePositionEmpty');
+            if (empty) empty.classList.toggle('hidden', has);
             if (has) {
                 const pnl = Number(pos.unrealisedPnl || 0);
                 const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
@@ -1847,6 +1899,7 @@
                         const rows = Array.isArray(msg.data) ? msg.data : [];
                         if (rows.some(x => String(x.symbol || '').toUpperCase() === currentSymbol.toUpperCase())) {
                             refreshPosition();
+                            if (!document.getElementById('mobileOrdersView')?.classList.contains('hidden')) refreshMobileOrders();
                         }
                     }
                 };
@@ -1889,7 +1942,9 @@
             if (!tp && !sl) return setTradeStatus('Укажи TP или SL', 'error');
             tradeState.positionBusy = true;
             try {
-                const body = {symbol:currentSymbol, positionIdx:Number(tradeState.position.positionIdx||0), takeProfit:tp ? normalizePrice(tp) : '0', stopLoss:sl ? normalizePrice(sl) : '0', tpTriggerBy:'MarkPrice', slTriggerBy:'MarkPrice'};
+                const currentTp = Number(tradeState.position.takeProfit || 0) ? normalizePrice(tradeState.position.takeProfit) : undefined;
+                const currentSl = Number(tradeState.position.stopLoss || 0) ? normalizePrice(tradeState.position.stopLoss) : undefined;
+                const body = {symbol:currentSymbol, positionIdx:Number(tradeState.position.positionIdx||0), takeProfit:tp ? normalizePrice(tp) : currentTp, stopLoss:sl ? normalizePrice(sl) : currentSl, tpTriggerBy:'MarkPrice', slTriggerBy:'MarkPrice'};
                 const r=await fetch('/api/trading-stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
                 const j=await r.json(); if(!r.ok||!j.ok) throw new Error(j.error||'Ошибка TP/SL');
                 setTradeStatus('TP/SL позиции обновлены','ok');
@@ -1988,6 +2043,86 @@
             finally{tradeState.busy=false;setTradeButtonsDisabled(!tradeState.tradingEnabled);}
         }
 
+        function orderTypeLabel(o) {
+            const t = String(o.orderType || '').toUpperCase();
+            if (t.includes('LIMIT')) return 'LIMIT';
+            if (t.includes('MARKET')) return 'MARKET';
+            return t || 'ORDER';
+        }
+        function orderStatusClass(o) {
+            const st = String(o.orderStatus || o.stopOrderType || '').toLowerCase();
+            if (st.includes('filled')) return 'text-bybit-green';
+            if (st.includes('cancel')) return 'text-bybit-muted';
+            return o.side === 'Buy' ? 'text-bybit-green' : 'text-bybit-red';
+        }
+        function renderMobileOrders(rows) {
+            const list = document.getElementById('mobileOrdersList');
+            if (!list) return;
+            if (!rows.length) { list.innerHTML = '<div class="mobile-order-empty">Нет активных ордеров</div>'; return; }
+            list.innerHTML = rows.map(o => {
+                const side = o.side === 'Buy' ? 'LONG' : 'SHORT';
+                const price = Number(o.price || 0) ? formatPrice(o.price) : (o.triggerPrice ? formatPrice(o.triggerPrice) : '—');
+                const qty = o.qty || '—';
+                const kind = o.stopOrderType ? String(o.stopOrderType) : orderTypeLabel(o);
+                const status = o.orderStatus || 'New';
+                return `<div class="mobile-order-row"><div class="mobile-order-main"><div class="mobile-order-title"><span class="${o.side==='Buy'?'text-bybit-green':'text-bybit-red'}">${side}</span><span class="text-white">${kind}</span><span class="${orderStatusClass(o)}">${status}</span></div><div class="mobile-order-meta">${qty} · ${price}${o.triggerDirection ? ` · trigger ${o.triggerDirection}` : ''}</div></div><button class="mobile-order-cancel" data-cancel-order="${o.orderId || ''}">CANCEL</button></div>`;
+            }).join('');
+            list.querySelectorAll('[data-cancel-order]').forEach(btn => btn.addEventListener('click', () => cancelMobileOrder(btn.dataset.cancelOrder)));
+        }
+        function renderMobileOrderHistory(rows) {
+            const list = document.getElementById('mobileOrderHistoryList');
+            if (!list) return;
+            if (!rows.length) { list.innerHTML = '<div class="mobile-order-empty">История пуста</div>'; return; }
+            list.innerHTML = rows.slice(0,8).map(o => {
+                const side = o.side === 'Buy' ? 'L' : 'S';
+                const status = o.orderStatus || '—';
+                const price = Number(o.avgPrice || o.price || 0) ? formatPrice(o.avgPrice || o.price) : '—';
+                return `<div class="mobile-order-row"><div class="mobile-order-main"><div class="mobile-order-title"><span class="${o.side==='Buy'?'text-bybit-green':'text-bybit-red'}">${side}</span><span class="text-white">${orderTypeLabel(o)}</span><span class="${orderStatusClass(o)}">${status}</span></div><div class="mobile-order-meta">${o.qty || '—'} · ${price}</div></div><div class="text-[9px] text-bybit-muted font-mono">${o.reduceOnly ? 'REDUCE' : ''}</div></div>`;
+            }).join('');
+        }
+        async function refreshMobileOrders() {
+            try {
+                const [a,b] = await Promise.all([
+                    fetch(`/api/orders?symbol=${encodeURIComponent(currentSymbol)}`, {cache:'no-store'}),
+                    fetch(`/api/order-history?symbol=${encodeURIComponent(currentSymbol)}`, {cache:'no-store'})
+                ]);
+                const aj = await a.json(), bj = await b.json();
+                if (!a.ok || !aj.ok) throw new Error(aj.error || 'Ошибка активных ордеров');
+                renderMobileOrders(aj.result?.list || []);
+                renderMobileOrderHistory(bj.result?.list || []);
+            } catch (err) {
+                const list=document.getElementById('mobileOrdersList'); if(list) list.innerHTML=`<div class="mobile-order-empty">Ошибка: ${err.message}</div>`;
+            }
+        }
+        async function cancelMobileOrder(orderId) {
+            if (!orderId || !confirm('Отменить этот ордер?')) return;
+            try {
+                const r=await fetch('/api/cancel-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:currentSymbol,orderId})});
+                const j=await r.json(); if(!r.ok||!j.ok) throw new Error(j.error||'Ошибка отмены');
+                setTradeStatus('Ордер отменён','ok'); await new Promise(resolve=>setTimeout(resolve,250)); await refreshMobileOrders();
+            } catch(err){ setTradeStatus(err.message,'error'); }
+        }
+        async function cancelAllMobileOrders() {
+            if (!confirm(`Отменить все активные ордера ${currentSymbol}?`)) return;
+            try {
+                const r=await fetch('/api/cancel-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:currentSymbol})});
+                const j=await r.json(); if(!r.ok||!j.ok) throw new Error(j.error||'Ошибка Cancel All');
+                setTradeStatus('Все активные ордера отменены','ok'); await new Promise(resolve=>setTimeout(resolve,250)); await refreshMobileOrders();
+            } catch(err){ setTradeStatus(err.message,'error'); }
+        }
+        function openMobileTool(view) {
+            const drawer=document.getElementById('mobileToolDrawer'); if(!drawer) return;
+            const pos=document.getElementById('mobilePositionView'), ord=document.getElementById('mobileOrdersView');
+            const pt=document.getElementById('mobileToolPositionTab'), ot=document.getElementById('mobileToolOrdersTab');
+            const isPos=view==='position';
+            drawer.classList.remove('hidden'); pos?.classList.toggle('hidden',!isPos); ord?.classList.toggle('hidden',isPos);
+            pt?.classList.toggle('active',isPos); ot?.classList.toggle('active',!isPos);
+            if (!isPos) refreshMobileOrders();
+            if (isPos) refreshPosition();
+            requestAnimationFrame(()=>resizeAllCharts());
+        }
+        function closeMobileTool() { const d=document.getElementById('mobileToolDrawer'); if(d) d.classList.add('hidden'); requestAnimationFrame(()=>resizeAllCharts()); }
+
         function bindTradingUI() {
             const d=tradeEls('desktop'), m=tradeEls('mobile');
             [d,m].forEach((e,i)=>{
@@ -2020,6 +2155,12 @@
             document.getElementById('mobilePreviewLong')?.addEventListener('click',()=>setPreviewSide('Buy'));
             document.getElementById('mobilePreviewShort')?.addEventListener('click',()=>setPreviewSide('Sell'));
 
+            document.getElementById('mobilePositionTabBtn')?.addEventListener('click',()=>openMobileTool('position'));
+            document.getElementById('mobileOrdersTabBtn')?.addEventListener('click',()=>openMobileTool('orders'));
+            document.getElementById('mobileToolPositionTab')?.addEventListener('click',()=>openMobileTool('position'));
+            document.getElementById('mobileToolOrdersTab')?.addEventListener('click',()=>openMobileTool('orders'));
+            document.getElementById('mobileToolClose')?.addEventListener('click',closeMobileTool);
+            document.getElementById('mobileCancelAllOrders')?.addEventListener('click',cancelAllMobileOrders);
             document.querySelectorAll('[data-partial-close]').forEach(btn => btn.addEventListener('click', () => partialClosePosition(Number(btn.dataset.partialClose))));
             document.getElementById('mobileApplyPositionRisk')?.addEventListener('click', applyPositionRisk);
             document.getElementById('mobileCancelPositionRisk')?.addEventListener('click', clearPositionRisk);
