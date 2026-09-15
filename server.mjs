@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  getConfig, getWalletBalance, getPosition, getOpenOrders, getOrderHistory,
+  getConfig, getPrivateWsAuth, getWalletBalance, getPosition, getOpenOrders, getOrderHistory,
   getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition
 } from './bybit.mjs';
 
@@ -31,6 +31,7 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/health') return json(res, 200, { ok: true, service: 'bybit-scalping-terminal', ...getConfig() });
     if (url.pathname === '/api/config') return json(res, 200, { ok: true, ...getConfig() });
+    if (url.pathname === '/api/ws-auth') return json(res, 200, { ok: true, ...getPrivateWsAuth() });
 
     if (url.pathname === '/api/account' || url.pathname === '/account') {
       const data = await getWalletBalance(); return json(res, 200, { ok: true, result: data.result });

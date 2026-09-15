@@ -57,6 +57,15 @@ async function request(method, path, params = {}, auth = true) {
   return data;
 }
 
+export function getPrivateWsAuth() {
+  assertCredentials();
+  const expires = Date.now() + 10000;
+  const signature = crypto.createHmac('sha256', API_SECRET)
+    .update(`GET/realtime${expires}`)
+    .digest('hex');
+  return { apiKey: API_KEY, expires, signature, url: USE_TESTNET ? 'wss://stream-testnet.bybit.com/v5/private' : 'wss://stream.bybit.com/v5/private' };
+}
+
 export function getConfig() {
   return { testnet: USE_TESTNET, baseUrl: BASE_URL, configured: Boolean(API_KEY && API_SECRET), tradingEnabled: TRADING_ENABLED };
 }

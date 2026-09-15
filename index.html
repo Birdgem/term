@@ -1298,6 +1298,11 @@
 
         // ===== Stage 4 Trading UI =====
         const tradeState = { instrument: null, tradingEnabled: false, position: null, busy: false };
+        let privateWs = null;
+        let privateWsPingTimer = null;
+        let privateWsReconnectTimer = null;
+        let privateWsToken = null;
+        let privateWsConnected = false;
 
         function tradeEls(prefix) {
             return {
@@ -1396,13 +1401,73 @@
         }
 
         async function refreshPosition() {
+            // One initial/safety REST read only. Live updates come from Bybit private WS.
             try {
                 const r = await fetch(`/api/position?symbol=${encodeURIComponent(currentSymbol)}`, {cache:'no-store'});
                 const j = await r.json();
                 const list = j.result?.list || [];
                 const pos = list.find(x => Number(x.size) > 0) || null;
                 renderPosition(pos);
-            } catch (err) { /* market UI must keep running if account refresh fails */ }
+            } catch (err) {
+                console.warn('Initial position refresh failed:', err);
+            }
+        }
+
+        async function connectPrivateWebSocket() {
+            if (privateWsReconnectTimer) { clearTimeout(privateWsReconnectTimer); privateWsReconnectTimer = null; }
+            if (privateWsPingTimer) { clearInterval(privateWsPingTimer); privateWsPingTimer = null; }
+            if (privateWs) { try { privateWs.close(); } catch(e) {} }
+            privateWs = null;
+            privateWsConnected = false;
+
+            try {
+                const r = await fetch('/api/ws-auth', {cache:'no-store'});
+                const auth = await r.json();
+                if (!r.ok || !auth.ok) throw new Error(auth.error || 'Private WS auth failed');
+                privateWsToken = auth;
+                privateWs = new WebSocket(auth.url);
+
+                privateWs.onopen = () => {
+                    privateWs.send(JSON.stringify({op:'auth', args:[auth.apiKey, auth.expires, auth.signature]}));
+                    privateWsPingTimer = setInterval(() => {
+                        if (privateWs && privateWs.readyState === WebSocket.OPEN) privateWs.send(JSON.stringify({op:'ping'}));
+                    }, 15000);
+                };
+
+                privateWs.onmessage = (event) => {
+                    let msg; try { msg = JSON.parse(event.data); } catch { return; }
+                    if (msg.op === 'auth' && (msg.success === true || msg.retCode === 0)) {
+                        privateWsConnected = true;
+                        privateWs.send(JSON.stringify({op:'subscribe', args:['position.linear','order.linear','execution.linear']}));
+                        return;
+                    }
+                    if (msg.topic === 'position.linear' && Array.isArray(msg.data)) {
+                        const rows = msg.data.filter(x => String(x.symbol || '').toUpperCase() === currentSymbol.toUpperCase());
+                        const pos = rows.find(x => Number(x.size) > 0) || null;
+                        renderPosition(pos);
+                        return;
+                    }
+                    if (msg.topic === 'execution.linear' || msg.topic === 'order.linear') {
+                        // Execution/order updates are the trigger for a quick authoritative REST read.
+                        const rows = Array.isArray(msg.data) ? msg.data : [];
+                        if (rows.some(x => String(x.symbol || '').toUpperCase() === currentSymbol.toUpperCase())) {
+                            refreshPosition();
+                        }
+                    }
+                };
+
+                privateWs.onerror = () => { privateWsConnected = false; };
+                privateWs.onclose = () => {
+                    privateWsConnected = false;
+                    if (privateWsPingTimer) { clearInterval(privateWsPingTimer); privateWsPingTimer = null; }
+                    privateWs = null;
+                    privateWsReconnectTimer = setTimeout(() => connectPrivateWebSocket(), 3000);
+                };
+            } catch (err) {
+                privateWsConnected = false;
+                privateWsReconnectTimer = setTimeout(() => connectPrivateWebSocket(), 5000);
+                console.warn('Private WS unavailable:', err);
+            }
         }
 
         async function executeTrade(side) {
@@ -1469,10 +1534,10 @@
                 e.close.addEventListener('click',closeTrade);
             });
             updateLimitVisibility(); loadTradeConfig(); refreshPosition();
-            setInterval(refreshPosition, 1000);
+            connectPrivateWebSocket();
             setInterval(fetchLongShortRatio, 5000);
             setInterval(fetchBybitTickers, 10000);
-            setInterval(loadTradeConfig, 30000);
+            setInterval(loadTradeConfig, 300000);
         }
 
         function setupOrderbookAutoRefresh() {
@@ -1561,6 +1626,7 @@
                 updateIndicatorVisibility();
 
                 connectWebSocket();
+                connectPrivateWebSocket();
                 setupOrderbookAutoRefresh();
 
             } catch (err) {
