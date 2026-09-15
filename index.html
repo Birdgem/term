@@ -1001,6 +1001,8 @@
         let macdChart = null;
 
         let candleSeries = null;
+        let positionLevelLines = { entry: null, tp: null, sl: null };
+        let previewRiskLines = { tp: null, sl: null };
         let volumeSeries = null;
         let ema20Series = null;
         let ema50Series = null;
@@ -1154,6 +1156,43 @@
             };
         }
 
+        function removePriceLineSafe(ref) {
+            if (!ref || !candleSeries) return;
+            try { candleSeries.removePriceLine(ref); } catch (e) {}
+        }
+
+        function addTradePriceLine(price, title, color, lineStyle, lineWidth = 1) {
+            const n = Number(price);
+            if (!candleSeries || !Number.isFinite(n) || n <= 0) return null;
+            try {
+                return candleSeries.createPriceLine({ price: n, color, lineWidth, lineStyle, axisLabelVisible: true, title });
+            } catch (e) { return null; }
+        }
+
+        function syncTradeChartLevels() {
+            if (!candleSeries) return;
+            Object.values(positionLevelLines).forEach(removePriceLineSafe);
+            Object.values(previewRiskLines).forEach(removePriceLineSafe);
+            positionLevelLines = { entry: null, tp: null, sl: null };
+            previewRiskLines = { tp: null, sl: null };
+
+            const pos = tradeState?.position;
+            if (pos && Number(pos.size) > 0) {
+                const isLong = pos.side === 'Buy';
+                const side = isLong ? 'LONG' : 'SHORT';
+                positionLevelLines.entry = addTradePriceLine(pos.avgPrice, `ENTRY ${side}`, isLong ? '#0ecb81' : '#f6465d', LightweightCharts.LineStyle.Solid, 2);
+                if (Number(pos.takeProfit) > 0) positionLevelLines.tp = addTradePriceLine(pos.takeProfit, 'TP', '#0ecb81', LightweightCharts.LineStyle.Dashed, 1);
+                if (Number(pos.stopLoss) > 0) positionLevelLines.sl = addTradePriceLine(pos.stopLoss, 'SL', '#f6465d', LightweightCharts.LineStyle.Dashed, 1);
+                return;
+            }
+
+            const e = tradeEls('mobile');
+            const tp = Number(e?.tp?.value || 0);
+            const sl = Number(e?.sl?.value || 0);
+            if (tp > 0) previewRiskLines.tp = addTradePriceLine(tp, 'TP PREVIEW', '#0ecb81', LightweightCharts.LineStyle.Dotted, 1);
+            if (sl > 0) previewRiskLines.sl = addTradePriceLine(sl, 'SL PREVIEW', '#f6465d', LightweightCharts.LineStyle.Dotted, 1);
+        }
+
         function initChart() {
             const priceContainer = document.getElementById('priceChartContainer');
             const volumeContainer = document.getElementById('volumeChartContainer');
@@ -1185,6 +1224,7 @@
             ema20Series = chart.addLineSeries({ color: '#f7a600', lineWidth: 1.4, title: 'EMA 20', lastValueVisible: false, priceLineVisible: false });
             ema50Series = chart.addLineSeries({ color: '#29b6f6', lineWidth: 1.4, title: 'EMA 50', lastValueVisible: false, priceLineVisible: false });
             ema200Series = chart.addLineSeries({ color: '#ab47bc', lineWidth: 1.6, title: 'EMA 200', lastValueVisible: false, priceLineVisible: false });
+            syncTradeChartLevels();
 
             volumeSeries = volumeChart.addHistogramSeries({
                 priceFormat: { type: 'volume' },
@@ -1753,6 +1793,7 @@
             });
             const closeBtn = document.getElementById('mobileCloseBtn');
             if (closeBtn) closeBtn.disabled = !has || tradeState.busy || !tradeState.tradingEnabled;
+            syncTradeChartLevels();
             updateTradePreview();
         }
 
@@ -1833,6 +1874,7 @@
             const tpEl=document.getElementById('mobilePreviewTpPnl'), slEl=document.getElementById('mobilePreviewSlPnl');
             if(tpEl) tpEl.className='v '+(tpPnl>=0?'text-bybit-green':'text-bybit-red');
             if(slEl) slEl.className='v '+(slPnl>=0?'text-bybit-green':'text-bybit-red');
+            syncTradeChartLevels();
         }
 
         function fillRiskPreset(percent, field) {
@@ -2191,6 +2233,7 @@
             document.querySelectorAll('[data-partial-close]').forEach(btn => btn.addEventListener('click', () => partialClosePosition(Number(btn.dataset.partialClose))));
             document.getElementById('mobileApplyPositionRisk')?.addEventListener('click', applyPositionRisk);
             document.getElementById('mobileCancelPositionRisk')?.addEventListener('click', clearPositionRisk);
+            ['mobilePosTPInput','mobilePosSLInput'].forEach(id => document.getElementById(id)?.addEventListener('input', syncTradeChartLevels));
             document.getElementById('mobileTrailingPreset')?.addEventListener('click', () => setPositionTrailing(0.5));
             document.getElementById('mobileCancelTrailing')?.addEventListener('click', clearPositionTrailing);
 
