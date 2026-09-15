@@ -66,3 +66,14 @@ This stage exposes live trading capability but does not yet wire the controls in
 - Symbol ticker list refreshes every 10 seconds.
 - REST remains as a fallback when the market WebSocket is unavailable.
 - TRADING_ENABLED remains the safety switch for live order execution.
+
+
+## Stage 5 — Mobile optimization
+- Mobile trading dock can collapse to leave more chart space; state is saved locally.
+- Mobile header stays visible while scrolling.
+- Chart height adapts to the phone viewport using `svh`.
+- Heavy S/R/pattern recalculation is dirty-flagged and runs no more than every 2s.
+- RSI/MACD recalculation is dirty-flagged and runs no more than every 2s.
+- Orderbook wall rendering is no longer duplicated by the overlay cycle.
+- Render proxy consumes Bybit `orderbook.200` at 100ms and still sends a top-50 snapshot to the phone. Direct phone→Bybit remains `orderbook.50` for lowest latency.
+- HTML is gzip-compressed when the browser supports it.

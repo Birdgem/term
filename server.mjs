@@ -3,6 +3,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import {
   getConfig, getPrivateWsAuth, getWalletBalance, getPosition, getOpenOrders, getOrderHistory,
   getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition
@@ -81,6 +82,11 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/' || url.pathname === '/index.html') {
       const html = await fs.readFile(path.join(__dirname, 'index.html'));
+      if (String(req.headers['accept-encoding'] || '').includes('gzip')) {
+        const gz = gzipSync(html, { level: 6 });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Encoding': 'gzip', 'Vary': 'Accept-Encoding', 'Cache-Control': 'no-store' });
+        return res.end(gz);
+      }
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(html);
     }
     return json(res, 404, { ok: false, error: 'Not found' });
@@ -143,7 +149,7 @@ marketWss.on('connection', (client, request, ctx) => {
       args: [
         `kline.${interval}.${symbol}`,
         `tickers.${symbol}`,
-        `orderbook.50.${symbol}`
+        `orderbook.200.${symbol}`
       ]
     }));
     pingTimer = setInterval(() => {
@@ -167,7 +173,7 @@ marketWss.on('connection', (client, request, ctx) => {
       latestTicker = data.toString();
       return;
     }
-    if (msg.topic === `orderbook.50.${symbol}`) {
+    if (msg.topic === `orderbook.200.${symbol}`) {
       if (msg.type === 'snapshot') {
         bookBids = new Map((msg.data?.b || []).map(x=>[Number(x[0]),Number(x[1])]));
         bookAsks = new Map((msg.data?.a || []).map(x=>[Number(x[0]),Number(x[1])]));
