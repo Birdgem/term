@@ -1,25 +1,25 @@
-# Bybit Scalping Terminal — Render
+# Bybit Scalping Terminal — Stage 2.5
 
-This version keeps the existing `index.html` unchanged and adds a same-origin Node.js backend for Bybit Global API access.
+Render Web Service for a Bybit Global Unified account.
 
-## Render settings
+## Current read-only API
 
-- Runtime: Node
-- Build Command: `npm install`
-- Start Command: `npm start`
-- Health Check Path: `/health`
+- `GET /health` — service/config check
+- `GET /api/account` — Unified wallet balance
+- `GET /api/position` — all USDT linear positions
+- `GET /api/position?symbol=BTCUSDT` — one symbol position
+- `GET /api/orders` — current/open linear orders
+- `GET /api/orders?symbol=BTCUSDT` — current orders for one symbol
+- `GET /api/order-history` — last 50 linear orders
+- `GET /api/order-history?symbol=BTCUSDT` — last 50 orders for one symbol
 
-## Environment variables
+No order creation, cancellation, TP/SL or other trading action is enabled in this stage.
 
-- `BYBIT_API_KEY` = your Bybit Global API key
-- `BYBIT_API_SECRET` = your Bybit Global API secret
-- `BYBIT_TESTNET` = `false`
-- `BYBIT_BASE_URL` = `https://api.bybit.com`
+## Render environment variables
 
-Do not put the API secret into `index.html` or client-side JavaScript.
+- `BYBIT_API_KEY`
+- `BYBIT_API_SECRET`
+- `BYBIT_TESTNET=false`
+- `BYBIT_BASE_URL=https://api.bybit.com`
 
-## Test URLs after deploy
-
-- `/health`
-- `/api/account`
-- `/api/position?symbol=BTCUSDT`
+The API secret is used only on the Render server and is never placed in `index.html`.

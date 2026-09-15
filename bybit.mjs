@@ -73,3 +73,17 @@ export async function getPosition(symbol = '') {
   else params.settleCoin = 'USDT';
   return request('GET', '/v5/position/list', params);
 }
+
+export async function getOpenOrders(symbol = '') {
+  const params = { category: 'linear', openOnly: 0 };
+  if (symbol) params.symbol = symbol.toUpperCase();
+  else params.settleCoin = 'USDT';
+  return request('GET', '/v5/order/realtime', params);
+}
+
+export async function getOrderHistory(symbol = '') {
+  const params = { category: 'linear', limit: 50 };
+  if (symbol) params.symbol = symbol.toUpperCase();
+  else params.settleCoin = 'USDT';
+  return request('GET', '/v5/order/history', params);
+}

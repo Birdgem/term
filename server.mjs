@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getConfig, getWalletBalance, getPosition } from './bybit.mjs';
+import { getConfig, getWalletBalance, getPosition, getOpenOrders, getOrderHistory } from './bybit.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 10000);
@@ -37,6 +37,18 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/position' || url.pathname === '/position') {
       const symbol = url.searchParams.get('symbol') || '';
       const data = await getPosition(symbol);
+      return json(res, 200, { ok: true, result: data.result });
+    }
+
+    if (url.pathname === '/api/orders' || url.pathname === '/orders') {
+      const symbol = url.searchParams.get('symbol') || '';
+      const data = await getOpenOrders(symbol);
+      return json(res, 200, { ok: true, result: data.result });
+    }
+
+    if (url.pathname === '/api/order-history' || url.pathname === '/order-history') {
+      const symbol = url.searchParams.get('symbol') || '';
+      const data = await getOrderHistory(symbol);
       return json(res, 200, { ok: true, result: data.result });
     }
 
