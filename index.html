@@ -328,6 +328,16 @@
             #mobileScalpScore.score-long { border-color: rgba(14,203,129,.45); }
             #mobileScalpScore.score-short { border-color: rgba(246,70,93,.45); }
             #mobileScalpScore.score-wait { border-color: rgba(247,166,0,.45); }
+            #priceInfoScalpScore { min-width: 72px; }
+            #priceInfoScalpScore.score-long { border-color: rgba(14,203,129,.45); }
+            #priceInfoScalpScore.score-short { border-color: rgba(246,70,93,.45); }
+            #priceInfoScalpScore.score-wait { border-color: rgba(247,166,0,.45); }
+            @media (max-width: 767px) {
+                #priceInfoOverlay { right: 2px; max-width: calc(100vw - 12px); flex-wrap: nowrap; overflow: hidden; }
+                #priceInfoOverlay > div:first-child { flex-shrink: 0; }
+                #priceInfoOverlay .scalp-score-mini { flex-shrink: 0; }
+                #mobileChartToolbar #mobileScalpScore { display:none !important; }
+            }
 
             /* Keep the chart visually dominant on small screens. */
             #chartsArea { background:#0d1117; }
@@ -561,6 +571,11 @@
                 <div class="flex items-center space-x-1 font-mono">
                     <span class="text-bybit-muted">24h: </span>
                     <span id="priceChange" class="font-bold">0.00%</span>
+                </div>
+                <div id="priceInfoScalpScore" class="scalp-score-mini flex items-center gap-1 px-1.5 py-0.5 rounded border border-bybit-border bg-bybit-bg/90 font-mono" title="Scalp Score">
+                    <span class="text-bybit-muted text-[8px]">SCORE</span>
+                    <b id="priceInfoScalpScoreValue" class="text-bybit-yellow text-[10px] leading-none">--</b>
+                    <span id="priceInfoScalpScoreBias" class="text-bybit-yellow text-[8px] font-black">WAIT</span>
                 </div>
                 
                 <div class="hidden lg:flex items-center space-x-2 font-mono text-[11px]" id="ohlcContainer">
@@ -3131,6 +3146,21 @@
                 el.classList.add(cls);
             });
             if (fill) fill.className = `scalp-score-fill ${score.score >= 63 ? 'bg-bybit-green' : score.score <= 37 ? 'bg-bybit-red' : 'bg-bybit-yellow'}`;
+
+            const priceInfoCard = document.getElementById('priceInfoScalpScore');
+            const priceInfoValue = document.getElementById('priceInfoScalpScoreValue');
+            const priceInfoBias = document.getElementById('priceInfoScalpScoreBias');
+            if (priceInfoValue) priceInfoValue.innerText = score.score;
+            if (priceInfoBias) priceInfoBias.innerText = score.bias;
+            if (priceInfoCard) {
+                priceInfoCard.classList.remove('score-long','score-short','score-wait');
+                priceInfoCard.classList.add(score.score >= 63 ? 'score-long' : score.score <= 37 ? 'score-short' : 'score-wait');
+            }
+            [priceInfoValue, priceInfoBias].forEach(el => {
+                if (!el) return;
+                el.classList.remove('text-bybit-green','text-bybit-red','text-bybit-yellow');
+                el.classList.add(cls);
+            });
 
             const mobileCard = document.getElementById('mobileScalpScore');
             const mobileValue = document.getElementById('mobileScalpScoreValue');
