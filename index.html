@@ -1928,44 +1928,111 @@
             processLiveOrderbook();
         }
 
-        function connectWebSocket() {
-            if (marketWsReconnectTimer) { clearTimeout(marketWsReconnectTimer); marketWsReconnectTimer = null; }
-            if (marketWsPingInterval) { clearInterval(marketWsPingInterval); marketWsPingInterval = null; }
-            if (marketWs) { try { marketWs.close(); } catch(e) {} }
+        let wsMode = 'DIRECT';
+        let wsAttempt = 0;
+        let wsFallbackTimer = null;
+        let wsReconnectTimer = null;
 
-            const wsDot = document.getElementById('wsStatusDot');
-            const wsText = document.getElementById('wsStatusText');
-            if (wsDot && wsText) {
-                wsDot.className = 'w-2 h-2 rounded-full bg-bybit-yellow animate-ping';
-                wsText.innerText = 'WS: Подключение';
+        function setWsStatus(mode, text, state='muted') {
+            const dot = document.getElementById('wsStatusDot');
+            const label = document.getElementById('wsStatusText');
+            if (!dot || !label) return;
+            const cls = state === 'live' ? 'bg-bybit-green' : state === 'error' ? 'bg-bybit-red' : 'bg-bybit-muted';
+            dot.className = `w-2 h-2 rounded-full ${cls}${state === 'connecting' ? ' animate-ping' : ''}`;
+            label.innerText = `WS: ${text}`;
+        }
+
+        function clearMarketWsTimers() {
+            if (marketWsReconnectTimer) { clearTimeout(marketWsReconnectTimer); marketWsReconnectTimer = null; }
+            if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+            if (wsFallbackTimer) { clearTimeout(wsFallbackTimer); wsFallbackTimer = null; }
+            if (marketWsPingInterval) { clearInterval(marketWsPingInterval); marketWsPingInterval = null; }
+        }
+
+        function closeMarketWs() {
+            clearMarketWsTimers();
+            if (marketWs) {
+                marketWs.__intentionalClose = true;
+                try { marketWs.close(); } catch(e) {}
+                marketWs = null;
+            }
+        }
+
+        function connectWebSocket(forceMode = 'auto') {
+            clearMarketWsTimers();
+            if (marketWs) {
+                marketWs.__intentionalClose = true;
+                try { marketWs.close(); } catch(e) {}
+                marketWs = null;
             }
 
             const activeSymbolAtConnect = currentSymbol;
             const activeIntervalAtConnect = currentInterval;
             liveOrderbook = { bids: new Map(), asks: new Map() };
-            marketWs = new WebSocket('wss://stream.bybit.com/v5/public/linear');
+            wsMode = forceMode === 'proxy' ? 'PROXY' : 'DIRECT';
+            wsAttempt += 1;
+            const attempt = wsAttempt;
+            setWsStatus(wsMode, 'ПОДКЛЮЧЕНИЕ', 'connecting');
+
+            let url;
+            if (wsMode === 'PROXY') {
+                const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                url = `${protocol}//${location.host}/ws/market?symbol=${encodeURIComponent(activeSymbolAtConnect)}&interval=${encodeURIComponent(activeIntervalAtConnect)}`;
+            } else {
+                url = 'wss://stream.bybit.com/v5/public/linear';
+            }
+
+            let opened = false;
+            try { marketWs = new WebSocket(url); } catch (e) {
+                handleWsFailure(e);
+                return;
+            }
+
+            function handleWsFailure(error) {
+                console.warn('Market WS failed:', error?.message || error);
+                if (attempt !== wsAttempt || activeSymbolAtConnect !== currentSymbol || activeIntervalAtConnect !== currentInterval) return;
+                if (wsMode === 'DIRECT') {
+                    setWsStatus('PROXY', 'PROXY', 'connecting');
+                    wsFallbackTimer = setTimeout(() => connectWebSocket('proxy'), 250);
+                } else {
+                    setWsStatus('PROXY', 'ОШИБКА', 'error');
+                    wsReconnectTimer = setTimeout(() => connectWebSocket('proxy'), Math.min(10000, 2000 + wsAttempt * 500));
+                }
+            }
 
             marketWs.onopen = () => {
-                if (wsDot && wsText) {
-                    wsDot.className = 'w-2 h-2 rounded-full bg-bybit-green';
-                    wsText.innerText = 'WS: LIVE';
+                opened = true;
+                if (attempt !== wsAttempt) return;
+                setWsStatus(wsMode, wsMode === 'DIRECT' ? 'DIRECT' : 'PROXY', 'live');
+                if (wsMode === 'DIRECT') {
+                    marketWs.send(JSON.stringify({
+                        op: 'subscribe',
+                        args: [
+                            `kline.${activeIntervalAtConnect}.${activeSymbolAtConnect}`,
+                            `tickers.${activeSymbolAtConnect}`,
+                            `orderbook.50.${activeSymbolAtConnect}`
+                        ]
+                    }));
                 }
-                marketWs.send(JSON.stringify({
-                    op: 'subscribe',
-                    args: [
-                        `kline.${activeIntervalAtConnect}.${activeSymbolAtConnect}`,
-                        `tickers.${activeSymbolAtConnect}`,
-                        `orderbook.50.${activeSymbolAtConnect}`
-                    ]
-                }));
                 marketWsPingInterval = setInterval(() => {
                     if (marketWs && marketWs.readyState === WebSocket.OPEN) marketWs.send(JSON.stringify({op:'ping'}));
                 }, 15000);
             };
 
+            // Direct WS gets a short grace period. If the network blocks it, switch to Render proxy.
+            if (wsMode === 'DIRECT') {
+                wsFallbackTimer = setTimeout(() => {
+                    if (!opened && attempt === wsAttempt) {
+                        try { marketWs.__intentionalClose = true; marketWs.close(); } catch(e) {}
+                        connectWebSocket('proxy');
+                    }
+                }, 6000);
+            }
+
             marketWs.onmessage = (event) => {
                 let msg;
                 try { msg = JSON.parse(event.data); } catch { return; }
+                if (msg.type === 'proxy_status') return;
                 if (!msg.topic || !msg.data) return;
                 if (!msg.topic.includes(activeSymbolAtConnect)) return;
 
@@ -2014,14 +2081,17 @@
                 }
             };
 
-            marketWs.onerror = () => {
-                if (wsDot && wsText) { wsDot.className='w-2 h-2 rounded-full bg-bybit-red'; wsText.innerText='WS: Ошибка'; }
-            };
+            marketWs.onerror = (e) => handleWsFailure(e);
             marketWs.onclose = () => {
-                if (marketWsPingInterval) { clearInterval(marketWsPingInterval); marketWsPingInterval=null; }
-                if (wsDot && wsText) { wsDot.className='w-2 h-2 rounded-full bg-bybit-muted'; wsText.innerText='WS: Переподключение'; }
-                if (activeSymbolAtConnect === currentSymbol && activeIntervalAtConnect === currentInterval) {
-                    marketWsReconnectTimer = setTimeout(() => connectWebSocket(), 1500);
+                if (attempt !== wsAttempt) return;
+                clearMarketWsTimers();
+                if (activeSymbolAtConnect !== currentSymbol || activeIntervalAtConnect !== currentInterval) return;
+                if (wsMode === 'DIRECT') {
+                    setWsStatus('PROXY', 'PROXY', 'connecting');
+                    wsReconnectTimer = setTimeout(() => connectWebSocket('proxy'), 250);
+                } else {
+                    setWsStatus('PROXY', 'ПЕРЕПОДКЛЮЧЕНИЕ', 'connecting');
+                    wsReconnectTimer = setTimeout(() => connectWebSocket('proxy'), 3000);
                 }
             };
         }

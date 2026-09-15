@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { WebSocketServer, WebSocket } from 'ws';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,6 +88,86 @@ const server = http.createServer(async (req, res) => {
     console.error(error); return json(res, 500, { ok: false, error: errorMessage(error) });
   }
 });
+
+
+// Public market WebSocket fallback. The browser normally connects directly to Bybit.
+// This proxy is used only when direct WS is unavailable on the user's network.
+const marketWss = new WebSocketServer({ noServer: true });
+
+function safeSymbol(value) {
+  return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 30);
+}
+function safeInterval(value) {
+  const allowed = new Set(['1','3','5','15','30','60','120','240','360','720','D','W','M']);
+  const v = String(value || '1');
+  return allowed.has(v) ? v : '1';
+}
+
+marketWss.on('connection', (client, request, ctx) => {
+  const symbol = safeSymbol(ctx.symbol);
+  const interval = safeInterval(ctx.interval);
+  if (!symbol) { client.close(1008, 'symbol required'); return; }
+
+  const upstream = new WebSocket('wss://stream.bybit.com/v5/public/linear');
+  let pingTimer = null;
+  let closed = false;
+
+  const shutdown = () => {
+    if (closed) return;
+    closed = true;
+    if (pingTimer) clearInterval(pingTimer);
+    try { upstream.close(); } catch {}
+    try { if (client.readyState === WebSocket.OPEN) client.close(); } catch {}
+  };
+
+  upstream.on('open', () => {
+    if (client.readyState !== WebSocket.OPEN) return shutdown();
+    client.send(JSON.stringify({ type: 'proxy_status', status: 'connected' }));
+    upstream.send(JSON.stringify({
+      op: 'subscribe',
+      args: [
+        `kline.${interval}.${symbol}`,
+        `tickers.${symbol}`,
+        `orderbook.50.${symbol}`
+      ]
+    }));
+    pingTimer = setInterval(() => {
+      if (upstream.readyState === WebSocket.OPEN) upstream.send(JSON.stringify({ op: 'ping' }));
+    }, 15000);
+  });
+
+  upstream.on('message', data => {
+    if (client.readyState === WebSocket.OPEN) client.send(data.toString());
+  });
+
+  upstream.on('error', err => {
+    console.error('Market WS proxy upstream error:', err?.message || err);
+    if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify({ type: 'proxy_status', status: 'error' }));
+  });
+
+  upstream.on('close', () => shutdown());
+  client.on('close', shutdown);
+  client.on('error', shutdown);
+});
+
+server.on('upgrade', (request, socket, head) => {
+  try {
+    const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    if (url.pathname !== '/ws/market') {
+      socket.destroy();
+      return;
+    }
+    marketWss.handleUpgrade(request, socket, head, ws => {
+      marketWss.emit('connection', ws, request, {
+        symbol: url.searchParams.get('symbol'),
+        interval: url.searchParams.get('interval')
+      });
+    });
+  } catch {
+    socket.destroy();
+  }
+});
+
 server.listen(PORT, HOST, () => {
   console.log(`Trading terminal listening on http://${HOST}:${PORT}`);
   console.log(`Bybit endpoint: ${getConfig().baseUrl}`);
