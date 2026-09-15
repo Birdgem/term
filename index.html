@@ -749,6 +749,7 @@
                     <button id="mobilePreviewLong" type="button" class="trade-quick border-bybit-green/50 text-bybit-green bg-bybit-green/10">LONG</button>
                     <button id="mobilePreviewShort" type="button" class="trade-quick">SHORT</button>
                     <span id="mobileRiskLinkState" class="text-[8px] text-bybit-muted ml-1 truncate">TP/SL вручную</span>
+                    <span id="mobileRiskRR" class="text-[8px] text-bybit-muted font-black shrink-0">RR —</span>
                 </div>
                 <div class="mobile-trade-row two">
                     <input id="mobileTP" class="trade-input" type="number" step="any" placeholder="TP (optional)">
@@ -760,6 +761,8 @@
                     <button class="trade-quick" data-risk="1">TP +1%</button>
                     <button class="trade-quick" data-risk="-0.5">SL 0.5%</button>
                     <button class="trade-quick" data-risk="-1">SL 1%</button>
+                    <button class="trade-quick" data-rr="2">RR 1:2</button>
+                    <button class="trade-quick" data-rr="3">RR 1:3</button>
                 </div>
                 <div class="mobile-trade-grid">
                     <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
@@ -1853,6 +1856,59 @@
             }
         }
 
+        function updateRiskRewardDisplay(price, tp, sl, qty, side) {
+            const el = document.getElementById('mobileRiskRR');
+            if (!el) return;
+            const p = Number(price), t = Number(tp), s = Number(sl), q = Number(qty);
+            const validLong = side === 'Buy' && t > p && s > 0 && s < p;
+            const validShort = side === 'Sell' && t > 0 && t < p && s > p;
+            if (!(p > 0 && ((validLong) || (validShort)))) {
+                el.textContent = 'RR —';
+                el.className = 'text-[8px] text-bybit-muted font-black shrink-0';
+                return;
+            }
+            const reward = side === 'Buy' ? (t - p) : (p - t);
+            const risk = side === 'Buy' ? (p - s) : (s - p);
+            const rr = reward / risk;
+            const rewardPnl = q > 0 ? reward * q : 0;
+            const riskPnl = q > 0 ? risk * q : 0;
+            el.textContent = `RR 1:${rr.toFixed(2)}`;
+            el.title = `Reward ${rewardPnl ? '+' + rewardPnl.toFixed(3) + ' USDT' : formatPrice(reward)} · Risk ${riskPnl ? riskPnl.toFixed(3) + ' USDT' : formatPrice(risk)}`;
+            el.className = 'text-[8px] font-black shrink-0 ' + (rr >= 2 ? 'text-bybit-green' : rr >= 1.5 ? 'text-bybit-yellow' : 'text-bybit-red');
+        }
+
+        function setRiskRewardPreset(ratio) {
+            const e = tradeEls('mobile');
+            const price = previewPrice();
+            if (!(price > 0)) return;
+            const r = Number(ratio);
+            if (!(r > 0)) return;
+            const side = tradeRiskState.side;
+            let tp = Number(e.tp?.value || 0);
+            let sl = Number(e.sl?.value || 0);
+            const hasTp = side === 'Buy' ? tp > price : tp > 0 && tp < price;
+            const hasSl = side === 'Buy' ? sl > 0 && sl < price : sl > price;
+            tradeRiskState.tpPct = null;
+            tradeRiskState.slPct = null;
+            if (!hasTp && !hasSl) {
+                const riskPct = 0.5;
+                const risk = price * riskPct / 100;
+                sl = side === 'Buy' ? price - risk : price + risk;
+                tp = side === 'Buy' ? price + risk * r : price - risk * r;
+            } else if (hasSl) {
+                const risk = Math.abs(price - sl);
+                tp = side === 'Buy' ? price + risk * r : price - risk * r;
+            } else if (hasTp) {
+                const reward = Math.abs(tp - price);
+                const risk = reward / r;
+                sl = side === 'Buy' ? price - risk : price + risk;
+            }
+            if (e.tp) e.tp.value = normalizePrice(tp);
+            if (e.sl) e.sl.value = normalizePrice(sl);
+            updateTradePreview();
+            syncTradeInputs('mobile');
+        }
+
         function updateTradePreview() {
             const e = tradeEls('mobile');
             if (!e.margin) return;
@@ -1874,6 +1930,7 @@
             const tpEl=document.getElementById('mobilePreviewTpPnl'), slEl=document.getElementById('mobilePreviewSlPnl');
             if(tpEl) tpEl.className='v '+(tpPnl>=0?'text-bybit-green':'text-bybit-red');
             if(slEl) slEl.className='v '+(slPnl>=0?'text-bybit-green':'text-bybit-red');
+            updateRiskRewardDisplay(price, tp, sl, qty, side);
             syncTradeChartLevels();
         }
 
@@ -2221,6 +2278,7 @@
                 const v=Number(btn.dataset.risk);
                 fillRiskPreset(v, v >= 0 ? 'tp' : 'sl');
             }));
+            document.querySelectorAll('[data-rr]').forEach(btn=>btn.addEventListener('click',()=>setRiskRewardPreset(Number(btn.dataset.rr))));
             document.getElementById('mobilePreviewLong')?.addEventListener('click',()=>setPreviewSide('Buy'));
             document.getElementById('mobilePreviewShort')?.addEventListener('click',()=>setPreviewSide('Sell'));
 
