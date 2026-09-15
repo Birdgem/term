@@ -210,6 +210,14 @@
         }
         .position-positive { color:#2ea043 !important; }
         .position-negative { color:#f85149 !important; }
+        .realtime-flash { animation: realtimeFlash .18s ease-out; }
+        @keyframes realtimeFlash { 0% { opacity:.65; } 100% { opacity:1; } }
+        @media (max-width:767px) {
+            #lastPrice { font-size: 12px; }
+            #mobileTradeDock .trade-input { min-height: 42px; font-size: 13px; }
+            #mobileTradeDock .trade-btn { min-height: 46px; font-size: 13px; }
+            #mobileTradeDock { box-shadow: 0 -10px 30px rgba(0,0,0,.45); }
+        }
 </style>
 </head>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
@@ -703,6 +711,12 @@
         };
 
         let orderbookPollTimer = null;
+        let livePrice = 0;
+        let live24hChange = 0;
+        let liveOrderbook = { bids: new Map(), asks: new Map() };
+        let marketWs = null;
+        let marketWsPingInterval = null;
+        let marketWsReconnectTimer = null;
 
         let chart = null;
         let volumeChart = null;
@@ -1398,7 +1412,7 @@
             const margin = Number(e.margin.value);
             const leverage = Number(String(e.leverage.value).replace('x',''));
             const orderType = e.orderType.value;
-            const price = orderType === 'Limit' ? Number(e.limitPrice.value) : Number(lastPrice || 0);
+            const price = orderType === 'Limit' ? Number(e.limitPrice.value) : Number(livePrice || 0);
             if (!margin || margin <= 0 || !leverage || leverage <= 0 || !price) return setTradeStatus('Проверь маржу, плечо и цену', 'error');
             const qty = normalizeQty((margin * leverage) / price);
             if (!qty) return setTradeStatus('Размер ниже минимального или не соответствует шагу qty', 'error');
@@ -1455,17 +1469,23 @@
                 e.close.addEventListener('click',closeTrade);
             });
             updateLimitVisibility(); loadTradeConfig(); refreshPosition();
-            setInterval(refreshPosition, 3000);
-            setInterval(loadTradeConfig, 15000);
+            setInterval(refreshPosition, 1000);
+            setInterval(fetchLongShortRatio, 5000);
+            setInterval(fetchBybitTickers, 10000);
+            setInterval(loadTradeConfig, 30000);
         }
 
         function setupOrderbookAutoRefresh() {
             if (orderbookPollTimer) clearInterval(orderbookPollTimer);
+            // Market depth is now pushed through the Bybit public WebSocket.
+            // Keep a lightweight REST fallback every 15s in case the socket is delayed.
             orderbookPollTimer = setInterval(async () => {
-                await fetchOrderBookWalls();
-                drawOrderBookWalls();
-                renderOrderbookWallsPanel();
-            }, 5000);
+                if (!marketWs || marketWs.readyState !== WebSocket.OPEN) {
+                    await fetchOrderBookWalls();
+                    drawOrderBookWalls();
+                    renderOrderbookWallsPanel();
+                }
+            }, 15000);
         }
 
         async function fetchData() {
@@ -1511,6 +1531,7 @@
                         }
                     });
 
+                    livePrice = lastCandle.close;
                     document.getElementById('lastPrice').innerText = formatPrice(lastCandle.close);
                     
                     const changeStr = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
@@ -1568,63 +1589,62 @@
             }
         }
 
+        function processLiveOrderbook() {
+            const bids = [...liveOrderbook.bids.entries()].map(([price, size]) => [price, size]).filter(x => x[1] > 0);
+            const asks = [...liveOrderbook.asks.entries()].map(([price, size]) => [price, size]).filter(x => x[1] > 0);
+            if (!bids.length && !asks.length) return;
+
+            const currentPrice = livePrice || (rawCandles.length ? rawCandles[rawCandles.length - 1].close : 0);
+            if (!currentPrice) return;
+
+            let totalBidsUSD = 0;
+            let totalAsksUSD = 0;
+            bids.forEach(b => { totalBidsUSD += Number(b[0]) * Number(b[1]); });
+            asks.forEach(a => { totalAsksUSD += Number(a[0]) * Number(a[1]); });
+            computeDominanceRatio(totalBidsUSD, totalAsksUSD);
+
+            const processOrders = (orders, type) => {
+                const items = orders.map(o => {
+                    const price = Number(o[0]);
+                    const size = Number(o[1]);
+                    return { price, size, usdValue: price * size, type };
+                });
+                const threshold = currentPrice * 0.003;
+                const clusters = [];
+                items.forEach(item => {
+                    let found = false;
+                    for (const c of clusters) {
+                        if (Math.abs(c.price - item.price) <= threshold) {
+                            c.usdValue += item.usdValue;
+                            c.size += item.size;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) clusters.push({ ...item });
+                });
+                clusters.sort((a,b) => b.usdValue - a.usdValue);
+                return clusters.slice(0,3);
+            };
+            detectedWalls = [...processOrders(asks, 'sell'), ...processOrders(bids, 'buy')];
+            drawOrderBookWalls();
+            renderOrderbookWallsPanel();
+        }
+
         async function fetchOrderBookWalls() {
             try {
                 const url = `https://api.bybit.com/v5/market/orderbook?category=linear&symbol=${currentSymbol}&limit=200`;
-                const res = await fetch(url);
+                const res = await fetch(url, { cache: 'no-store' });
                 const json = await res.json();
-
                 if (json.retCode === 0 && json.result) {
-                    const bids = json.result.b || [];
-                    const asks = json.result.a || [];
-
-                    const currentPrice = rawCandles.length > 0 ? rawCandles[rawCandles.length - 1].close : 0;
-                    if (!currentPrice) return;
-
-                    let totalBidsUSD = 0;
-                    let totalAsksUSD = 0;
-
-                    bids.forEach(b => { totalBidsUSD += parseFloat(b[0]) * parseFloat(b[1]); });
-                    asks.forEach(a => { totalAsksUSD += parseFloat(a[0]) * parseFloat(a[1]); });
-
-                    computeDominanceRatio(totalBidsUSD, totalAsksUSD);
-
-                    const processOrders = (orders, type) => {
-                        const items = orders.map(o => {
-                            const price = parseFloat(o[0]);
-                            const size = parseFloat(o[1]);
-                            const usdValue = price * size;
-                            return { price, size, usdValue, type };
-                        });
-
-                        const threshold = currentPrice * 0.003;
-                        const clusters = [];
-
-                        items.forEach(item => {
-                            let found = false;
-                            for (let c of clusters) {
-                                if (Math.abs(c.price - item.price) <= threshold) {
-                                    c.usdValue += item.usdValue;
-                                    c.size += item.size;
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (!found) clusters.push({ ...item });
-                        });
-
-                        clusters.sort((a, b) => b.usdValue - a.usdValue);
-                        return clusters.slice(0, 3);
-                    };
-
-                    const buyWalls = processOrders(bids, 'buy');
-                    const sellWalls = processOrders(asks, 'sell');
-
-                    detectedWalls = [...sellWalls, ...buyWalls];
+                    liveOrderbook.bids.clear();
+                    liveOrderbook.asks.clear();
+                    (json.result.b || []).forEach(x => liveOrderbook.bids.set(Number(x[0]), Number(x[1])));
+                    (json.result.a || []).forEach(x => liveOrderbook.asks.set(Number(x[0]), Number(x[1])));
+                    processLiveOrderbook();
                 }
             } catch (e) {
-                console.error("Failed to fetch orderbook walls:", e);
-                detectedWalls = [];
+                console.error('Failed to fetch orderbook:', e);
             }
         }
 
@@ -1796,91 +1816,146 @@
             if (containerMobile) containerMobile.innerHTML = html;
         }
 
-        function connectWebSocket() {
-            if (ws) {
-                try { ws.close(); } catch(e){}
+        function updateLivePrice(price, changePct = null) {
+            if (!Number.isFinite(price) || price <= 0) return;
+            livePrice = price;
+            document.getElementById('lastPrice').innerText = formatPrice(price);
+            if (changePct !== null && Number.isFinite(changePct)) {
+                live24hChange = changePct;
+                const changeStr = `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`;
+                const changeEl = document.getElementById('priceChange');
+                if (changeEl) {
+                    changeEl.innerText = changeStr;
+                    changeEl.className = `font-mono font-bold ${changePct >= 0 ? 'text-bybit-green' : 'text-bybit-red'}`;
+                }
+                const headerChangeEl = document.getElementById('headerSymbolChange');
+                if (headerChangeEl) {
+                    headerChangeEl.innerText = changeStr;
+                    headerChangeEl.className = `text-[9px] font-mono font-bold ${changePct >= 0 ? 'text-bybit-green' : 'text-bybit-red'}`;
+                }
             }
-            if (wsPingInterval) clearInterval(wsPingInterval);
+        }
+
+        function applyOrderbookSnapshot(data) {
+            liveOrderbook.bids.clear();
+            liveOrderbook.asks.clear();
+            (data?.b || []).forEach(x => liveOrderbook.bids.set(Number(x[0]), Number(x[1])));
+            (data?.a || []).forEach(x => liveOrderbook.asks.set(Number(x[0]), Number(x[1])));
+            processLiveOrderbook();
+        }
+
+        function applyOrderbookDelta(data) {
+            const apply = (map, rows) => {
+                (rows || []).forEach(x => {
+                    const price = Number(x[0]);
+                    const size = Number(x[1]);
+                    if (!price) return;
+                    if (size === 0) map.delete(price);
+                    else map.set(price, size);
+                });
+            };
+            apply(liveOrderbook.bids, data?.b);
+            apply(liveOrderbook.asks, data?.a);
+            // Keep memory bounded even if the exchange sends a lot of levels.
+            if (liveOrderbook.bids.size > 250) liveOrderbook.bids = new Map([...liveOrderbook.bids.entries()].sort((a,b)=>b[0]-a[0]).slice(0,200));
+            if (liveOrderbook.asks.size > 250) liveOrderbook.asks = new Map([...liveOrderbook.asks.entries()].sort((a,b)=>a[0]-b[0]).slice(0,200));
+            processLiveOrderbook();
+        }
+
+        function connectWebSocket() {
+            if (marketWsReconnectTimer) { clearTimeout(marketWsReconnectTimer); marketWsReconnectTimer = null; }
+            if (marketWsPingInterval) { clearInterval(marketWsPingInterval); marketWsPingInterval = null; }
+            if (marketWs) { try { marketWs.close(); } catch(e) {} }
 
             const wsDot = document.getElementById('wsStatusDot');
             const wsText = document.getElementById('wsStatusText');
-
             if (wsDot && wsText) {
-                wsDot.className = "w-2 h-2 rounded-full bg-bybit-yellow animate-ping";
-                wsText.innerText = "WS: Подключение";
+                wsDot.className = 'w-2 h-2 rounded-full bg-bybit-yellow animate-ping';
+                wsText.innerText = 'WS: Подключение';
             }
 
             const activeSymbolAtConnect = currentSymbol;
-            ws = new WebSocket('wss://stream.bybit.com/v5/public/linear');
+            const activeIntervalAtConnect = currentInterval;
+            liveOrderbook = { bids: new Map(), asks: new Map() };
+            marketWs = new WebSocket('wss://stream.bybit.com/v5/public/linear');
 
-            ws.onopen = () => {
+            marketWs.onopen = () => {
                 if (wsDot && wsText) {
-                    wsDot.className = "w-2 h-2 rounded-full bg-bybit-green";
-                    wsText.innerText = "WS: Live";
+                    wsDot.className = 'w-2 h-2 rounded-full bg-bybit-green';
+                    wsText.innerText = 'WS: LIVE';
                 }
-
-                const subscribeMsg = {
-                    op: "subscribe",
-                    args: [`kline.${currentInterval}.${activeSymbolAtConnect}`]
-                };
-                ws.send(JSON.stringify(subscribeMsg));
-
-                wsPingInterval = setInterval(() => {
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ op: "ping" }));
-                    }
-                }, 20000);
+                marketWs.send(JSON.stringify({
+                    op: 'subscribe',
+                    args: [
+                        `kline.${activeIntervalAtConnect}.${activeSymbolAtConnect}`,
+                        `tickers.${activeSymbolAtConnect}`,
+                        `orderbook.50.${activeSymbolAtConnect}`
+                    ]
+                }));
+                marketWsPingInterval = setInterval(() => {
+                    if (marketWs && marketWs.readyState === WebSocket.OPEN) marketWs.send(JSON.stringify({op:'ping'}));
+                }, 15000);
             };
 
-            ws.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-                if (msg.topic && msg.topic.includes(currentSymbol) && msg.data) {
-                    const k = msg.data[0];
-                    if (!k) return;
+            marketWs.onmessage = (event) => {
+                let msg;
+                try { msg = JSON.parse(event.data); } catch { return; }
+                if (!msg.topic || !msg.data) return;
+                if (!msg.topic.includes(activeSymbolAtConnect)) return;
 
-                    const liveCandle = {
-                        time: parseInt(k.start) / 1000,
-                        open: parseFloat(k.open),
-                        high: parseFloat(k.high),
-                        low: parseFloat(k.low),
-                        close: parseFloat(k.close),
-                        volume: parseFloat(k.volume)
-                    };
-
-                    if (rawCandles.length > 0) {
-                        const lastIndex = rawCandles.length - 1;
-                        if (rawCandles[lastIndex].time === liveCandle.time) {
-                            rawCandles[lastIndex] = liveCandle;
-                        } else {
-                            rawCandles.push(liveCandle);
+                if (msg.topic.startsWith('tickers.')) {
+                    const t = Array.isArray(msg.data) ? msg.data[0] : msg.data;
+                    const price = Number(t?.lastPrice || t?.markPrice || t?.indexPrice);
+                    const pct = t?.price24hPcnt !== undefined ? Number(t.price24hPcnt) * 100 : null;
+                    if (price) {
+                        updateLivePrice(price, pct);
+                        if (rawCandles.length) {
+                            const lc = rawCandles[rawCandles.length-1];
+                            const liveCandle = {...lc, close: price, high: Math.max(lc.high, price), low: Math.min(lc.low, price)};
+                            rawCandles[rawCandles.length-1] = liveCandle;
+                            candleSeries.update(liveCandle);
+                            updateOHLCTooltip(liveCandle);
                         }
                     }
+                    return;
+                }
 
+                if (msg.topic.startsWith('orderbook.')) {
+                    if (msg.type === 'snapshot') applyOrderbookSnapshot(msg.data);
+                    else applyOrderbookDelta(msg.data);
+                    return;
+                }
+
+                if (msg.topic.startsWith('kline.')) {
+                    const k = Array.isArray(msg.data) ? msg.data[0] : null;
+                    if (!k) return;
+                    const liveCandle = {
+                        time: Number(k.start) / 1000,
+                        open: Number(k.open), high: Number(k.high), low: Number(k.low),
+                        close: Number(k.close), volume: Number(k.volume)
+                    };
+                    if (rawCandles.length > 0) {
+                        const lastIndex = rawCandles.length - 1;
+                        if (rawCandles[lastIndex].time === liveCandle.time) rawCandles[lastIndex] = liveCandle;
+                        else rawCandles.push(liveCandle);
+                    }
                     candleSeries.update(liveCandle);
-                    volumeSeries.update({
-                        time: liveCandle.time,
-                        value: liveCandle.volume,
-                        color: liveCandle.close >= liveCandle.open ? 'rgba(14, 203, 129, 0.55)' : 'rgba(246, 70, 93, 0.55)'
-                    });
-
-                    document.getElementById('lastPrice').innerText = formatPrice(liveCandle.close);
+                    volumeSeries.update({ time: liveCandle.time, value: liveCandle.volume, color: liveCandle.close >= liveCandle.open ? 'rgba(14,203,129,.55)' : 'rgba(246,70,93,.55)' });
+                    updateLivePrice(liveCandle.close);
                     updateOHLCTooltip(liveCandle);
                     updateOverlays();
                     updateIndicators();
                 }
             };
 
-            ws.onerror = () => {
-                if (wsDot && wsText) {
-                    wsDot.className = "w-2 h-2 rounded-full bg-bybit-red";
-                    wsText.innerText = "WS: Ошибка";
-                }
+            marketWs.onerror = () => {
+                if (wsDot && wsText) { wsDot.className='w-2 h-2 rounded-full bg-bybit-red'; wsText.innerText='WS: Ошибка'; }
             };
-
-            ws.onclose = () => {
-                if (wsDot && wsText) {
-                    wsDot.className = "w-2 h-2 rounded-full bg-bybit-muted";
-                    wsText.innerText = "WS: Пауза";
+            marketWs.onclose = () => {
+                if (marketWsPingInterval) { clearInterval(marketWsPingInterval); marketWsPingInterval=null; }
+                if (wsDot && wsText) { wsDot.className='w-2 h-2 rounded-full bg-bybit-muted'; wsText.innerText='WS: Переподключение'; }
+                if (activeSymbolAtConnect === currentSymbol && activeIntervalAtConnect === currentInterval) {
+                    marketWsReconnectTimer = setTimeout(() => connectWebSocket(), 1500);
                 }
             };
         }

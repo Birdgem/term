@@ -56,3 +56,13 @@ This stage exposes live trading capability but does not yet wire the controls in
 - Live position/PnL refresh every 3 seconds.
 - Trading controls remain disabled while `TRADING_ENABLED=false`.
 - Mobile layout is touch-first and avoids horizontal scrolling.
+
+
+## Stage 4 Realtime
+- Bybit public WebSocket for live ticker, candles and order book.
+- Order-book walls and Buy/Sell dominance update from live depth.
+- Position state is refreshed from the Render backend every 1 second.
+- Long/Short account ratio refreshes every 5 seconds.
+- Symbol ticker list refreshes every 10 seconds.
+- REST remains as a fallback when the market WebSocket is unavailable.
+- TRADING_ENABLED remains the safety switch for live order execution.
