@@ -246,24 +246,12 @@
             #priceChartContainer { min-height: 330px; }
             #priceChartContainer .tv-lightweight-charts { touch-action: pan-x pan-y; }
 
-            /* Always-accessible analytics shortcut, independent of header width. */
-            #mobileAnalyticsFab {
-                display:flex; position:fixed; right:10px; bottom:calc(156px + env(safe-area-inset-bottom));
-                width:42px; height:42px; z-index:55; align-items:center; justify-content:center;
-                border:1px solid rgba(247,166,0,.55); border-radius:12px;
-                background:rgba(22,27,34,.94); color:#f7a600;
-                box-shadow:0 8px 24px rgba(0,0,0,.4);
-                backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-            }
-            body.mobile-trade-collapsed #mobileAnalyticsFab { bottom:calc(72px + env(safe-area-inset-bottom)); }
-
             /* Keep the chart visually dominant on small screens. */
             #chartsArea { background:#0d1117; }
             #volumeChartContainer { height:100px !important; }
             #rsiChartContainer { height:105px !important; }
             #macdChartContainer { height:115px !important; }
         }
-        @media (min-width:768px) { #mobileAnalyticsFab { display:none !important; } }
 </style>
 </head>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
@@ -489,6 +477,14 @@
                     <span class="text-bybit-muted">C: <span id="ohlcClose" class="text-white">0.00</span></span>
                     <span class="text-bybit-muted">Vol: <span id="ohlcVol" class="text-white">0.00</span></span>
                 </div>
+            </div>
+
+            <div id="mobileChartToolbar" class="md:hidden flex items-center justify-between px-2 py-1.5 bg-bybit-card border-b border-bybit-border text-[10px] font-mono">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-bybit-muted">CHART</span>
+                    <span class="text-bybit-green">REALTIME</span>
+                </div>
+                <button id="resetChartViewBtn" class="px-2 py-1 rounded-md bg-bybit-bg border border-bybit-border text-bybit-muted active:scale-95">AUTO</button>
             </div>
 
             <div id="chartsArea">
@@ -924,9 +920,9 @@
                     timeVisible: showTimeScale,
                     secondsVisible: false,
                     visible: showTimeScale,
-                    barSpacing: window.innerWidth < 768 ? 7.2 : 6.5,
-                    minBarSpacing: window.innerWidth < 768 ? 3.5 : 2,
-                    maxBarSpacing: 16,
+                    barSpacing: window.innerWidth < 768 ? 10.2 : 7.0,
+                    minBarSpacing: window.innerWidth < 768 ? 5.0 : 2.5,
+                    maxBarSpacing: window.innerWidth < 768 ? 18 : 16,
                     rightOffset: 3,
                 },
                 handleScale: true,
@@ -952,7 +948,7 @@
                 borderUpColor: '#0ecb81',
                 wickDownColor: '#f6465d',
                 wickUpColor: '#0ecb81',
-                borderVisible: true,
+                borderVisible: false,
                 wickVisible: true,
                 priceLineVisible: true,
                 priceFormat: {
@@ -962,9 +958,9 @@
                 }
             });
 
-            ema20Series = chart.addLineSeries({ color: '#f7a600', lineWidth: 1, title: 'EMA 20' });
-            ema50Series = chart.addLineSeries({ color: '#29b6f6', lineWidth: 1, title: 'EMA 50' });
-            ema200Series = chart.addLineSeries({ color: '#ab47bc', lineWidth: 1.5, title: 'EMA 200' });
+            ema20Series = chart.addLineSeries({ color: '#f7a600', lineWidth: 1.4, title: 'EMA 20', lastValueVisible: false, priceLineVisible: false });
+            ema50Series = chart.addLineSeries({ color: '#29b6f6', lineWidth: 1.4, title: 'EMA 50', lastValueVisible: false, priceLineVisible: false });
+            ema200Series = chart.addLineSeries({ color: '#ab47bc', lineWidth: 1.6, title: 'EMA 200', lastValueVisible: false, priceLineVisible: false });
 
             volumeSeries = volumeChart.addHistogramSeries({
                 priceFormat: { type: 'volume' },
@@ -1361,6 +1357,15 @@
                 updateIndicatorVisibility();
             });
 
+            document.getElementById('resetChartViewBtn')?.addEventListener('click', () => {
+                try {
+                    const visibleBars = window.innerWidth < 768 ? 52 : 110;
+                    const from = Math.max(0, rawCandles.length - visibleBars);
+                    chart.timeScale().setVisibleLogicalRange({ from, to: rawCandles.length + 2 });
+                    chart.priceScale('right').applyOptions({ autoScale: true });
+                } catch (e) {}
+            });
+
             document.getElementById('refreshBtn').addEventListener('click', async () => {
                 const icon = document.getElementById('refreshIcon');
                 if (icon) icon.classList.add('animate-spin');
@@ -1377,7 +1382,6 @@
             const mobileDrawer = document.getElementById('mobileAnalyticsDrawer');
             const openAnalytics = () => mobileDrawer.classList.remove('hidden');
             document.getElementById('openMobileAnalyticsBtn').addEventListener('click', openAnalytics);
-            document.getElementById('mobileAnalyticsFab').addEventListener('click', openAnalytics);
             document.getElementById('closeMobileAnalyticsBtn').addEventListener('click', () => mobileDrawer.classList.add('hidden'));
             mobileDrawer.addEventListener('click', (e) => {
                 if (e.target === mobileDrawer) mobileDrawer.classList.add('hidden');
@@ -1727,7 +1731,7 @@
                 // keeps a useful recent window with readable candle bodies.
                 requestAnimationFrame(() => {
                     try {
-                        const visibleBars = window.innerWidth < 768 ? 72 : 110;
+                        const visibleBars = window.innerWidth < 768 ? 52 : 110;
                         const from = Math.max(0, rawCandles.length - visibleBars);
                         chart.timeScale().setVisibleLogicalRange({
                             from,
@@ -1745,7 +1749,6 @@
                 updateOverlays();
                 updateIndicators();
 
-                chart.timeScale().fitContent();
                 chart.priceScale('right').applyOptions({ autoScale: true });
                 syncAllChartRanges();
                 updateIndicatorVisibility();
