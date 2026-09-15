@@ -45,3 +45,14 @@ The backend validates the basic order fields and forces `category=linear`. Instr
 
 ## Important
 This stage exposes live trading capability but does not yet wire the controls into the existing 2110-line HTML UI. The next stage should add the order/position panel to the terminal and use the instrument metadata for quantity/price normalization.
+
+
+## Stage 4 — Trading UI + Mobile
+- Desktop trade bar and mobile fixed trading dock.
+- Long / Short / Close controls.
+- Margin + leverage sizing with instrument qty step/min qty.
+- Market / Limit order selection.
+- Optional TP/SL after position appears.
+- Live position/PnL refresh every 3 seconds.
+- Trading controls remain disabled while `TRADING_ENABLED=false`.
+- Mobile layout is touch-first and avoids horizontal scrolling.

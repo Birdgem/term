@@ -180,7 +180,37 @@
                 top: 6px;
             }
         }
-    </style>
+    
+        /* ===== Stage 4 Trading UI ===== */
+        .trade-panel { border-bottom: 1px solid #21262d; background:#161b22; }
+        .trade-field { min-width: 0; }
+        .trade-input { width:100%; background:#0d1117; border:1px solid #30363d; color:#fff; border-radius:8px; padding:7px 8px; font:600 12px ui-monospace,monospace; outline:none; }
+        .trade-input:focus { border-color:#f7a600; }
+        .trade-btn { min-height:38px; border-radius:9px; font:800 12px ui-monospace,monospace; touch-action:manipulation; }
+        .trade-btn:disabled { opacity:.45; cursor:not-allowed; }
+        .trade-long { background:#1f8f55; color:#fff; }
+        .trade-short { background:#d63b45; color:#fff; }
+        .trade-close { background:#30363d; color:#fff; }
+        .trade-status { min-height:18px; }
+        #mobileTradeDock { padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
+        @media (max-width:767px) {
+            body { padding-bottom: 142px; }
+            #desktopTradePanel { display:none !important; }
+            #mobileTradeDock { display:block; }
+            .mobile-trade-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+            .mobile-trade-grid .wide { grid-column:1 / -1; }
+            .mobile-trade-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+            .mobile-trade-row.two { grid-template-columns:1fr 1fr; }
+            .mobile-trade-small { font-size:10px; }
+            #mobilePositionCard:empty { display:none; }
+        }
+        @media (min-width:768px) {
+            #mobileTradeDock { display:none !important; }
+            #desktopTradePanel { display:block; }
+        }
+        .position-positive { color:#2ea043 !important; }
+        .position-negative { color:#f85149 !important; }
+</style>
 </head>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
 
@@ -356,6 +386,29 @@
         </div>
     </header>
 
+    <!-- Stage 4: Desktop Trading Panel -->
+    <section id="desktopTradePanel" class="trade-panel px-3 py-2 shrink-0">
+        <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center gap-2 shrink-0">
+                <span class="text-[10px] font-bold text-bybit-yellow uppercase tracking-wider">TRADE</span>
+                <span id="desktopTradeMode" class="text-[9px] font-mono text-bybit-muted border border-bybit-border rounded px-1.5 py-0.5">LIVE OFF</span>
+            </div>
+            <div class="trade-field w-24"><label class="block text-[9px] text-bybit-muted mb-0.5">Маржа USDT</label><input id="desktopMargin" class="trade-input" type="number" min="0" step="0.01" value="5"></div>
+            <div class="trade-field w-20"><label class="block text-[9px] text-bybit-muted mb-0.5">Плечо</label><select id="desktopLeverage" class="trade-input"><option>1</option><option>2</option><option>3</option><option>5</option><option>10</option><option>20</option></select></div>
+            <div class="trade-field w-24"><label class="block text-[9px] text-bybit-muted mb-0.5">Тип</label><select id="desktopOrderType" class="trade-input"><option value="Market">Market</option><option value="Limit">Limit</option></select></div>
+            <div id="desktopLimitWrap" class="trade-field w-28 hidden"><label class="block text-[9px] text-bybit-muted mb-0.5">Цена</label><input id="desktopLimitPrice" class="trade-input" type="number" step="any"></div>
+            <div class="trade-field w-28"><label class="block text-[9px] text-bybit-muted mb-0.5">TP</label><input id="desktopTP" class="trade-input" type="number" step="any" placeholder="optional"></div>
+            <div class="trade-field w-28"><label class="block text-[9px] text-bybit-muted mb-0.5">SL</label><input id="desktopSL" class="trade-input" type="number" step="any" placeholder="optional"></div>
+            <div class="flex items-end gap-1 ml-auto">
+                <button id="desktopLongBtn" class="trade-btn trade-long px-4">LONG</button>
+                <button id="desktopShortBtn" class="trade-btn trade-short px-4">SHORT</button>
+                <button id="desktopCloseBtn" class="trade-btn trade-close px-4">CLOSE</button>
+            </div>
+            <div id="desktopPositionCard" class="text-[10px] font-mono text-bybit-muted min-w-[220px]">Позиция: нет</div>
+            <div id="desktopTradeStatus" class="trade-status text-[10px] font-mono text-bybit-muted w-full"></div>
+        </div>
+    </section>
+
     <!-- Main Content Layout -->
     <div class="main-layout flex relative">
         <main class="chart-main flex flex-col relative bg-bybit-bg">
@@ -476,6 +529,35 @@
                 </span>
             </div>
         </aside>
+    </div>
+
+    <!-- Stage 4: Mobile Trading Dock -->
+    <div id="mobileTradeDock" class="fixed bottom-0 left-0 right-0 z-40 bg-bybit-card/98 backdrop-blur-md border-t border-bybit-border shadow-2xl md:hidden">
+        <div class="p-2 space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-[10px] font-black text-bybit-yellow">TRADE</span>
+                    <span id="mobileTradeMode" class="text-[8px] font-mono text-bybit-muted border border-bybit-border rounded px-1">LIVE OFF</span>
+                    <span id="mobilePositionCard" class="text-[9px] font-mono text-bybit-muted truncate">Нет позиции</span>
+                </div>
+                <button id="mobileCloseBtn" class="trade-btn trade-close px-3 text-[10px]">CLOSE</button>
+            </div>
+            <div class="mobile-trade-row">
+                <input id="mobileMargin" class="trade-input" type="number" min="0" step="0.01" value="5" placeholder="Маржа USDT">
+                <select id="mobileLeverage" class="trade-input"><option>1x</option><option>2x</option><option>3x</option><option>5x</option><option selected>10x</option><option>20x</option></select>
+                <select id="mobileOrderType" class="trade-input"><option value="Market">Market</option><option value="Limit">Limit</option></select>
+            </div>
+            <div id="mobileLimitWrap" class="mobile-trade-row two hidden"><input id="mobileLimitPrice" class="trade-input wide" type="number" step="any" placeholder="Limit price"></div>
+            <div class="mobile-trade-row two">
+                <input id="mobileTP" class="trade-input" type="number" step="any" placeholder="TP (optional)">
+                <input id="mobileSL" class="trade-input" type="number" step="any" placeholder="SL (optional)">
+            </div>
+            <div class="mobile-trade-grid">
+                <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
+                <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
+            </div>
+            <div id="mobileTradeStatus" class="trade-status text-[9px] font-mono text-bybit-muted truncate"></div>
+        </div>
     </div>
 
     <!-- Mobile Analytics Drawer -->
@@ -663,6 +745,7 @@
             lucide.createIcons();
             initChart();
             bindEvents();
+            bindTradingUI();
             updateIndicatorVisibility();
             fetchBybitTickers();
             fetchData();
@@ -1196,6 +1279,184 @@
             document.getElementById('openHelpBtn').addEventListener('click', () => helpModal.classList.remove('hidden'));
             document.getElementById('closeHelpBtn').addEventListener('click', () => helpModal.classList.add('hidden'));
             document.getElementById('closeHelpModalBtn').addEventListener('click', () => helpModal.classList.add('hidden'));
+        }
+
+
+        // ===== Stage 4 Trading UI =====
+        const tradeState = { instrument: null, tradingEnabled: false, position: null, busy: false };
+
+        function tradeEls(prefix) {
+            return {
+                margin: document.getElementById(prefix + 'Margin'),
+                leverage: document.getElementById(prefix + 'Leverage'),
+                orderType: document.getElementById(prefix + 'OrderType'),
+                limitPrice: document.getElementById(prefix + 'LimitPrice'),
+                limitWrap: document.getElementById(prefix + 'LimitWrap'),
+                tp: document.getElementById(prefix + 'TP'),
+                sl: document.getElementById(prefix + 'SL'),
+                long: document.getElementById(prefix + 'LongBtn'),
+                short: document.getElementById(prefix + 'ShortBtn'),
+                close: document.getElementById(prefix + 'CloseBtn'),
+                position: document.getElementById(prefix + 'PositionCard'),
+                status: document.getElementById(prefix + 'TradeStatus'),
+                mode: document.getElementById(prefix + 'TradeMode')
+            };
+        }
+
+        function setTradeStatus(text, tone='muted') {
+            ['desktop','mobile'].forEach(p => {
+                const e = tradeEls(p); if (!e.status) return;
+                e.status.textContent = text || '';
+                e.status.className = 'trade-status text-[10px] font-mono ' + (tone === 'error' ? 'text-bybit-red' : tone === 'ok' ? 'text-bybit-green' : 'text-bybit-muted');
+            });
+        }
+
+        function normalizeQty(qty) {
+            const step = Number(tradeState.instrument?.lotSizeFilter?.qtyStep || 0);
+            const min = Number(tradeState.instrument?.lotSizeFilter?.minOrderQty || 0);
+            if (!step) return String(qty);
+            const n = Math.floor(Number(qty) / step) * step;
+            const decimals = Math.max(0, (String(step).split('.')[1] || '').length);
+            if (n < min) return '';
+            return n.toFixed(decimals).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+        }
+
+        function normalizePrice(price) {
+            const tick = Number(tradeState.instrument?.priceFilter?.tickSize || 0);
+            if (!tick || !price) return String(price);
+            const n = Math.round(Number(price) / tick) * tick;
+            const decimals = Math.max(0, (String(tick).split('.')[1] || '').length);
+            return n.toFixed(decimals).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+        }
+
+        function syncTradeInputs(sourcePrefix) {
+            const a = tradeEls(sourcePrefix);
+            const b = tradeEls(sourcePrefix === 'mobile' ? 'desktop' : 'mobile');
+            if (!a.margin || !b.margin) return;
+            b.margin.value = a.margin.value;
+            b.leverage.value = sourcePrefix === 'mobile' ? String(a.leverage.value).replace('x','') : a.leverage.value;
+            b.orderType.value = a.orderType.value;
+            if (a.limitPrice) b.limitPrice.value = a.limitPrice.value;
+            b.tp.value = a.tp.value; b.sl.value = a.sl.value;
+            updateLimitVisibility();
+        }
+
+        function updateLimitVisibility() {
+            ['desktop','mobile'].forEach(p => {
+                const e = tradeEls(p); if (!e.orderType || !e.limitWrap) return;
+                const show = e.orderType.value === 'Limit';
+                e.limitWrap.classList.toggle('hidden', !show);
+            });
+        }
+
+        function renderPosition(pos) {
+            tradeState.position = pos;
+            const has = pos && Number(pos.size) > 0;
+            let text = 'Нет позиции';
+            if (has) {
+                const pnl = Number(pos.unrealisedPnl || 0);
+                const cls = pnl >= 0 ? 'position-positive' : 'position-negative';
+                text = `<span class="font-bold ${pos.side === 'Buy' ? 'text-bybit-green' : 'text-bybit-red'}">${pos.side === 'Buy' ? 'LONG' : 'SHORT'}</span> ${pos.size} @ ${formatPrice(pos.avgPrice)} · <span class="${cls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT</span>`;
+            }
+            ['desktop','mobile'].forEach(p => { const e=tradeEls(p); if(e.position) e.position.innerHTML=text; });
+        }
+
+        async function loadTradeConfig() {
+            try {
+                const [cfgRes, instRes] = await Promise.all([
+                    fetch('/api/config', {cache:'no-store'}),
+                    fetch(`/api/instrument?symbol=${encodeURIComponent(currentSymbol)}`, {cache:'no-store'})
+                ]);
+                const cfg = await cfgRes.json(); const inst = await instRes.json();
+                tradeState.tradingEnabled = Boolean(cfg.tradingEnabled);
+                tradeState.instrument = inst.result?.list?.[0] || null;
+                const mode = tradeState.tradingEnabled ? 'LIVE ON' : 'LIVE OFF';
+                ['desktop','mobile'].forEach(p => { const e=tradeEls(p); if(e.mode){e.mode.textContent=mode; e.mode.className='text-[9px] font-mono border rounded px-1.5 py-0.5 '+(tradeState.tradingEnabled?'text-bybit-green border-bybit-green/30':'text-bybit-muted border-bybit-border'); } });
+                setTradeButtonsDisabled(!tradeState.tradingEnabled);
+                if (!tradeState.tradingEnabled) setTradeStatus('Торговля отключена: TRADING_ENABLED=false', 'muted');
+            } catch (err) { setTradeStatus('Ошибка торгового конфига: ' + err.message, 'error'); }
+        }
+
+        function setTradeButtonsDisabled(disabled) {
+            ['desktop','mobile'].forEach(p => ['long','short','close'].forEach(k => { const e=tradeEls(p)[k]; if(e) e.disabled=disabled || tradeState.busy; }));
+        }
+
+        async function refreshPosition() {
+            try {
+                const r = await fetch(`/api/position?symbol=${encodeURIComponent(currentSymbol)}`, {cache:'no-store'});
+                const j = await r.json();
+                const list = j.result?.list || [];
+                const pos = list.find(x => Number(x.size) > 0) || null;
+                renderPosition(pos);
+            } catch (err) { /* market UI must keep running if account refresh fails */ }
+        }
+
+        async function executeTrade(side) {
+            if (!tradeState.tradingEnabled || tradeState.busy) return;
+            const e = tradeEls('mobile');
+            syncTradeInputs('mobile');
+            const margin = Number(e.margin.value);
+            const leverage = Number(String(e.leverage.value).replace('x',''));
+            const orderType = e.orderType.value;
+            const price = orderType === 'Limit' ? Number(e.limitPrice.value) : Number(lastPrice || 0);
+            if (!margin || margin <= 0 || !leverage || leverage <= 0 || !price) return setTradeStatus('Проверь маржу, плечо и цену', 'error');
+            const qty = normalizeQty((margin * leverage) / price);
+            if (!qty) return setTradeStatus('Размер ниже минимального или не соответствует шагу qty', 'error');
+            if (orderType === 'Limit' && !Number(e.limitPrice.value)) return setTradeStatus('Для Limit нужна цена', 'error');
+            const tp = e.tp.value ? normalizePrice(e.tp.value) : '';
+            const sl = e.sl.value ? normalizePrice(e.sl.value) : '';
+            tradeState.busy = true; setTradeButtonsDisabled(true); setTradeStatus(`Отправляю ${side === 'Buy' ? 'LONG' : 'SHORT'} ${qty} ${currentSymbol}...`);
+            try {
+                await fetch('/api/leverage', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({symbol:currentSymbol, leverage})}).then(async r=>{const j=await r.json(); if(!r.ok||!j.ok) throw new Error(j.error||'Ошибка плеча');});
+                const body = { symbol: currentSymbol, side, orderType, qty };
+                if (orderType === 'Limit') { body.price = normalizePrice(e.limitPrice.value); body.timeInForce = 'GTC'; }
+                const r = await fetch('/api/order', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+                const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.error || 'Ошибка открытия ордера');
+                setTradeStatus(`Ордер принят: ${j.result?.orderId || 'OK'}`, 'ok');
+                await new Promise(resolve=>setTimeout(resolve,700));
+                await refreshPosition();
+                if (tp || sl) {
+                    const pr = tradeState.position;
+                    if (pr) {
+                        const sr = await fetch('/api/trading-stop', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({symbol:currentSymbol, positionIdx:Number(pr.positionIdx||0), takeProfit:tp||undefined, stopLoss:sl||undefined, tpTriggerBy:'MarkPrice', slTriggerBy:'MarkPrice'})});
+                        const sj = await sr.json(); if(!sr.ok||!sj.ok) throw new Error('Позиция открыта, но TP/SL не установлен: '+(sj.error||''));
+                        setTradeStatus('Позиция открыта, TP/SL установлен', 'ok');
+                    } else if (orderType === 'Limit') {
+                        setTradeStatus('Limit принят. TP/SL установится после открытия позиции.', 'ok');
+                    } else {
+                        setTradeStatus('Ордер принят, но позиция ещё не появилась. TP/SL не установлен.', 'error');
+                    }
+                }
+            } catch(err) { setTradeStatus(err.message, 'error'); }
+            finally { tradeState.busy=false; setTradeButtonsDisabled(!tradeState.tradingEnabled); await refreshPosition(); }
+        }
+
+        async function closeTrade() {
+            if (!tradeState.tradingEnabled || tradeState.busy) return;
+            if (!tradeState.position) return setTradeStatus('Открытой позиции нет');
+            if (!confirm(`Закрыть ${currentSymbol} ${tradeState.position.side === 'Buy' ? 'LONG' : 'SHORT'}?`)) return;
+            tradeState.busy=true; setTradeButtonsDisabled(true); setTradeStatus('Закрываю позицию...');
+            try {
+                const r=await fetch('/api/close-position',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol:currentSymbol,positionIdx:Number(tradeState.position.positionIdx||0)})});
+                const j=await r.json(); if(!r.ok||!j.ok) throw new Error(j.error||'Ошибка закрытия');
+                setTradeStatus('Команда на закрытие отправлена', 'ok'); await new Promise(resolve=>setTimeout(resolve,500)); await refreshPosition();
+            } catch(err){setTradeStatus(err.message,'error');}
+            finally{tradeState.busy=false;setTradeButtonsDisabled(!tradeState.tradingEnabled);}
+        }
+
+        function bindTradingUI() {
+            const d=tradeEls('desktop'), m=tradeEls('mobile');
+            [d,m].forEach((e,i)=>{
+                if(!e.margin) return;
+                e.orderType.addEventListener('change',()=>{updateLimitVisibility(); syncTradeInputs(i===0?'desktop':'mobile');});
+                [e.margin,e.leverage,e.limitPrice,e.tp,e.sl].forEach(x=>x?.addEventListener('input',()=>syncTradeInputs(i===0?'desktop':'mobile')));
+                e.long.addEventListener('click',()=>executeTrade('Buy'));
+                e.short.addEventListener('click',()=>executeTrade('Sell'));
+                e.close.addEventListener('click',closeTrade);
+            });
+            updateLimitVisibility(); loadTradeConfig(); refreshPosition();
+            setInterval(refreshPosition, 3000);
+            setInterval(loadTradeConfig, 15000);
         }
 
         function setupOrderbookAutoRefresh() {
