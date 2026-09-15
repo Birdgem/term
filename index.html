@@ -163,6 +163,8 @@
             flex: none;
         }
 
+        .header-action-btn { box-sizing:border-box; }
+
         .dropdown-animate {
             transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -232,15 +234,21 @@
             /* Stage 5.1 mobile header: keep the important actions visible. */
             #topHeader > div:first-child { min-width: 0; }
             #topHeader > div:first-child > div:first-child { min-width: 0; flex: 1 1 auto; }
+            #topHeader > div:first-child { gap: 6px; }
+            #topHeader > div:nth-child(2) { overflow-x: auto; scrollbar-width: none; }
+            #topHeader > div:nth-child(2)::-webkit-scrollbar { display:none; }
             #symbolDropdownBtn { min-width: 112px !important; }
+            #dominanceDropdownContainer { min-width: 0; flex: 1 1 auto; }
+            #dominanceDropdownBtn { width: 100%; min-width: 0; }
             #dominanceDropdownBtn { max-width: 132px; padding-left: 8px !important; padding-right: 7px !important; }
             #domBadgeText { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             #headerWsBadge { display:none !important; }
             #openHelpBtn { display:none !important; }
-            #refreshBtn, #openMobileAnalyticsBtn { flex: 0 0 34px; width:34px; height:34px; padding:0 !important; }
-            #openMobileAnalyticsBtn span { display:none !important; }
-            #refreshBtn svg, #openMobileAnalyticsBtn svg { width:17px; height:17px; }
-            #refreshBtn { border-color: rgba(247,166,0,.45); background: rgba(247,166,0,.08); }
+            #headerActions { display:none !important; }
+            #mobileHeaderActions { display:flex !important; }
+            .header-action-btn { height:34px; min-width:34px; padding:0 9px; border-radius:9px; display:flex; align-items:center; justify-content:center; gap:5px; font:700 10px ui-monospace,monospace; white-space:nowrap; }
+            #mobileRefreshBtn svg, #mobileAnalyticsActionBtn svg { width:16px; height:16px; }
+            #mobileAnalyticsActionBtn { min-width:82px; }
 
             /* Bybit-like mobile candles: fewer, wider bars with more breathing room. */
             #priceChartContainer { min-height: 330px; }
@@ -356,7 +364,7 @@
             </div>
 
             <!-- Action Toolbar -->
-            <div class="flex items-center space-x-1.5 shrink-0">
+            <div id="headerActions" class="flex items-center space-x-1.5 shrink-0">
                 <div class="flex items-center space-x-1.5 bg-bybit-bg border border-bybit-border px-2 py-1 rounded-lg" id="headerWsBadge" title="Bybit Real-Time API Stream Status">
                     <span class="w-2 h-2 rounded-full bg-bybit-yellow animate-pulse" id="wsStatusDot"></span>
                     <span class="text-[10px] text-bybit-muted font-bold font-mono uppercase" id="wsStatusText">WS: Подключение</span>
@@ -425,6 +433,17 @@
                     <span class="text-bybit-text text-[11px]">EMA</span>
                 </label>
             </div>
+
+            <div id="mobileHeaderActions" class="md:hidden flex items-center gap-1.5 shrink-0">
+                <button id="mobileRefreshBtn" class="header-action-btn bg-bybit-bg border border-bybit-yellow/40 text-bybit-yellow" title="Обновить данные">
+                    <i data-lucide="rotate-cw" class="w-4 h-4" id="mobileRefreshIcon"></i>
+                </button>
+                <button id="mobileAnalyticsActionBtn" class="header-action-btn bg-bybit-yellow/10 border border-bybit-yellow/35 text-bybit-yellow" title="Открыть аналитику">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    <span>Анализ</span>
+                    <span id="mobilePatternBadge2" class="bg-bybit-yellow text-black font-mono text-[9px] px-1 rounded-full font-bold">0</span>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -477,6 +496,9 @@
                     <span class="text-bybit-muted">C: <span id="ohlcClose" class="text-white">0.00</span></span>
                     <span class="text-bybit-muted">Vol: <span id="ohlcVol" class="text-white">0.00</span></span>
                 </div>
+            </div>
+            <div id="mobileOhlcMini" class="md:hidden absolute top-11 left-2 z-20 hidden items-center gap-1.5 bg-bybit-card/92 backdrop-blur-md border border-bybit-border/80 px-2 py-1 rounded-md text-[9px] font-mono shadow-xl">
+                <span>O <b id="mobileO">0</b></span><span>H <b id="mobileH">0</b></span><span>L <b id="mobileL">0</b></span><span>C <b id="mobileC">0</b></span><span>V <b id="mobileV">0</b></span>
             </div>
 
             <div id="mobileChartToolbar" class="md:hidden flex items-center justify-between px-2 py-1.5 bg-bybit-card border-b border-bybit-border text-[10px] font-mono">
@@ -616,11 +638,6 @@
             </div>
         </div>
     </div>
-
-    <button id="mobileAnalyticsFab" class="md:hidden" aria-label="Открыть аналитику" title="Авто-анализ">
-        <i data-lucide="cpu" class="w-5 h-5"></i>
-        <span id="mobileFabPatternBadge" class="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-bybit-yellow text-black text-[9px] font-black flex items-center justify-center">0</span>
-    </button>
 
     <!-- Mobile Analytics Drawer -->
     <div id="mobileAnalyticsDrawer" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex flex-col justify-end md:hidden">
@@ -849,18 +866,44 @@
             });
         });
 
+        function decimalPlaces(value) {
+            const n = Number(value);
+            if (!Number.isFinite(n) || n <= 0) return 0;
+            const str = String(value).toLowerCase();
+            if (str.includes('e-')) {
+                const [mantissa, expPart] = str.split('e-');
+                const exp = Number(expPart) || 0;
+                const decimals = (mantissa.split('.')[1] || '').length;
+                return exp + decimals;
+            }
+            return Math.max(0, (str.split('.')[1] || '').length);
+        }
+
+        function getTickPricePrecision() {
+            const tick = Number(tradeState?.instrument?.priceFilter?.tickSize || 0);
+            return tick > 0 ? decimalPlaces(tick) : 0;
+        }
+
+        function getAdaptivePricePrecision(price) {
+            const val = Math.abs(Number(price));
+            let fallback = 2;
+            if (val < 0.0000001) fallback = 10;
+            else if (val < 0.000001) fallback = 9;
+            else if (val < 0.00001) fallback = 8;
+            else if (val < 0.0001) fallback = 7;
+            else if (val < 0.001) fallback = 6;
+            else if (val < 0.01) fallback = 6;
+            else if (val < 0.1) fallback = 5;
+            else if (val < 1) fallback = 4;
+            else if (val < 10) fallback = 3;
+            return Math.max(fallback, getTickPricePrecision());
+        }
+
         function formatPrice(price, customPrecision = null) {
             if (price === undefined || price === null || isNaN(price)) return '0.00';
             const val = parseFloat(price);
-            
-            let p = customPrecision !== null ? customPrecision : pricePrecision;
-            if (val < 0.0001) p = 8;
-            else if (val < 0.001) p = 6;
-            else if (val < 0.01) p = 5;
-            else if (val < 1) p = 4;
-            else if (val < 10) p = 3;
-
-            return val.toFixed(p);
+            const p = customPrecision !== null ? customPrecision : Math.max(pricePrecision, getAdaptivePricePrecision(val));
+            return val.toFixed(Math.min(12, p));
         }
 
         function formatVolumeUSD(volume) {
@@ -873,12 +916,7 @@
         }
 
         function getPrecisionForPrice(price) {
-            if (price < 0.0001) return 8;
-            if (price < 0.001) return 6;
-            if (price < 0.01) return 5;
-            if (price < 1) return 4;
-            if (price < 10) return 3;
-            return 2;
+            return getAdaptivePricePrecision(price);
         }
 
         function createChartOptions(container, showTimeScale = false) {
@@ -920,8 +958,8 @@
                     timeVisible: showTimeScale,
                     secondsVisible: false,
                     visible: showTimeScale,
-                    barSpacing: window.innerWidth < 768 ? 10.2 : 7.0,
-                    minBarSpacing: window.innerWidth < 768 ? 5.0 : 2.5,
+                    barSpacing: window.innerWidth < 768 ? 11.5 : 7.0,
+                    minBarSpacing: window.innerWidth < 768 ? 7.0 : 2.5,
                     maxBarSpacing: window.innerWidth < 768 ? 18 : 16,
                     rightOffset: 3,
                 },
@@ -1028,10 +1066,13 @@
             });
 
             chart.subscribeCrosshairMove(param => {
+                const mini = document.getElementById('mobileOhlcMini');
                 if (!param.time || param.point === undefined || param.point.x < 0 || param.point.y < 0) {
+                    if (mini) mini.classList.add('hidden');
                     if (rawCandles.length > 0) updateOHLCTooltip(rawCandles[rawCandles.length - 1]);
                     return;
                 }
+                if (mini && window.innerWidth < 768) mini.classList.remove('hidden');
                 const candle = param.seriesData.get(candleSeries);
                 const volume = param.time ? rawCandles.find(c => c.time === param.time) : null;
                 if (candle) {
@@ -1106,6 +1147,16 @@
         }
 
         function updateOHLCTooltip(c) {
+            const mini = document.getElementById('mobileOhlcMini');
+            if (mini && c) {
+                const set = (id, value) => { const el = document.getElementById(id); if (el) el.innerText = value; };
+                set('mobileO', formatPrice(c.open));
+                set('mobileH', formatPrice(c.high));
+                set('mobileL', formatPrice(c.low));
+                set('mobileC', formatPrice(c.close));
+                set('mobileV', formatVolumeUSD(c.volume || 0));
+            }
+
             if (!c) return;
             document.getElementById('ohlcOpen').innerText = formatPrice(c.open);
             document.getElementById('ohlcHigh').innerText = formatPrice(c.high);
@@ -1366,22 +1417,25 @@
                 } catch (e) {}
             });
 
-            document.getElementById('refreshBtn').addEventListener('click', async () => {
-                const icon = document.getElementById('refreshIcon');
+            const doManualRefresh = async (iconId) => {
+                const icon = document.getElementById(iconId);
                 if (icon) icon.classList.add('animate-spin');
                 try {
                     await fetchBybitTickers();
                     await fetchData();
-                    // A manual refresh is also a clean market-stream reset.
                     connectWebSocket('auto');
                 } finally {
                     setTimeout(() => { if (icon) icon.classList.remove('animate-spin'); }, 500);
                 }
-            });
+            };
+
+            document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
+            document.getElementById('mobileRefreshBtn')?.addEventListener('click', () => doManualRefresh('mobileRefreshIcon'));
 
             const mobileDrawer = document.getElementById('mobileAnalyticsDrawer');
             const openAnalytics = () => mobileDrawer.classList.remove('hidden');
-            document.getElementById('openMobileAnalyticsBtn').addEventListener('click', openAnalytics);
+            document.getElementById('openMobileAnalyticsBtn')?.addEventListener('click', openAnalytics);
+            document.getElementById('mobileAnalyticsActionBtn')?.addEventListener('click', openAnalytics);
             document.getElementById('closeMobileAnalyticsBtn').addEventListener('click', () => mobileDrawer.classList.add('hidden'));
             mobileDrawer.addEventListener('click', (e) => {
                 if (e.target === mobileDrawer) mobileDrawer.classList.add('hidden');
@@ -1487,6 +1541,13 @@
                 const cfg = await cfgRes.json(); const inst = await instRes.json();
                 tradeState.tradingEnabled = Boolean(cfg.tradingEnabled);
                 tradeState.instrument = inst.result?.list?.[0] || null;
+                const instrumentTickPrecision = getTickPricePrecision();
+                if (instrumentTickPrecision > 0) pricePrecision = Math.max(pricePrecision, instrumentTickPrecision);
+                if (candleSeries && instrumentTickPrecision > 0) {
+                    candleSeries.applyOptions({
+                        priceFormat: { type: 'custom', minMove: Number(tradeState.instrument?.priceFilter?.tickSize || 1 / Math.pow(10, pricePrecision)), formatter: (p) => formatPrice(p) }
+                    });
+                }
                 const mode = tradeState.tradingEnabled ? 'LIVE ON' : 'LIVE OFF';
                 ['desktop','mobile'].forEach(p => { const e=tradeEls(p); if(e.mode){e.mode.textContent=mode; e.mode.className='text-[9px] font-mono border rounded px-1.5 py-0.5 '+(tradeState.tradingEnabled?'text-bybit-green border-bybit-green/30':'text-bybit-muted border-bybit-border'); } });
                 setTradeButtonsDisabled(!tradeState.tradingEnabled);
@@ -1696,8 +1757,9 @@
                     const firstCandle = rawCandles[0];
                     const change = ((lastCandle.close - firstCandle.close) / firstCandle.close) * 100;
 
-                    pricePrecision = getPrecisionForPrice(lastCandle.close);
-                    const minMoveVal = 1 / Math.pow(10, pricePrecision);
+                    pricePrecision = Math.max(getPrecisionForPrice(lastCandle.close), getTickPricePrecision());
+                    const tickSize = Number(tradeState?.instrument?.priceFilter?.tickSize || 0);
+                    const minMoveVal = tickSize > 0 ? tickSize : 1 / Math.pow(10, pricePrecision);
 
                     candleSeries.applyOptions({
                         priceFormat: {
