@@ -672,6 +672,12 @@
                     <select id="mobileOrderType" class="trade-input"><option value="Market">Market</option><option value="Limit">Limit</option></select>
                 </div>
                 <div id="mobileLimitWrap" class="mobile-trade-row two hidden"><input id="mobileLimitPrice" class="trade-input wide" type="number" step="any" placeholder="Limit price"></div>
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    <span class="text-[9px] text-bybit-muted shrink-0">Направление</span>
+                    <button id="mobilePreviewLong" type="button" class="trade-quick border-bybit-green/50 text-bybit-green bg-bybit-green/10">LONG</button>
+                    <button id="mobilePreviewShort" type="button" class="trade-quick">SHORT</button>
+                    <span id="mobileRiskLinkState" class="text-[8px] text-bybit-muted ml-1 truncate">TP/SL вручную</span>
+                </div>
                 <div class="mobile-trade-row two">
                     <input id="mobileTP" class="trade-input" type="number" step="any" placeholder="TP (optional)">
                     <input id="mobileSL" class="trade-input" type="number" step="any" placeholder="SL (optional)">
@@ -1503,6 +1509,7 @@
 
         // ===== Stage 4 Trading UI =====
         const tradeState = { instrument: null, tradingEnabled: false, position: null, busy: false };
+        const tradeRiskState = { side: 'Buy', tpPct: null, slPct: null, internalUpdate: false };
         let privateWs = null;
         let privateWsPingTimer = null;
         let privateWsReconnectTimer = null;
@@ -1585,8 +1592,11 @@
                 const sideLabel = pos.side === 'Buy' ? 'LONG' : 'SHORT';
                 const sideCls = pos.side === 'Buy' ? 'text-bybit-green' : 'text-bybit-red';
                 const mark = Number(pos.markPrice || livePrice || 0);
-                text = `${sideLabel} ${pos.size} @ ${formatPrice(pos.avgPrice)} · ${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT`;
-                html = `<span class="side ${sideCls}">${sideLabel}</span><span class="meta">${pos.size} @ ${formatPrice(pos.avgPrice)} · Mark ${formatPrice(mark)}</span><span class="pnl ${cls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT</span>`;
+                const tp = Number(pos.takeProfit || 0);
+                const sl = Number(pos.stopLoss || 0);
+                const riskMeta = `${tp ? ` · TP ${formatPrice(tp)}` : ''}${sl ? ` · SL ${formatPrice(sl)}` : ''}`;
+                text = `${sideLabel} ${pos.size} @ ${formatPrice(pos.avgPrice)} · ${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT${riskMeta}`;
+                html = `<span class="side ${sideCls}">${sideLabel}</span><span class="meta">${pos.size} @ ${formatPrice(pos.avgPrice)} · Mark ${formatPrice(mark)}${tp ? ` · TP ${formatPrice(tp)}` : ''}${sl ? ` · SL ${formatPrice(sl)}` : ''}</span><span class="pnl ${cls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT</span>`;
             }
             ['desktop','mobile'].forEach(p => {
                 const e=tradeEls(p);
@@ -1616,15 +1626,56 @@
             return Number(normalizeQty((margin * leverage) / price)) || 0;
         }
 
+        function setPreviewSide(side) {
+            tradeRiskState.side = side === 'Sell' ? 'Sell' : 'Buy';
+            window.__previewSide = tradeRiskState.side;
+            const longBtn = document.getElementById('mobilePreviewLong');
+            const shortBtn = document.getElementById('mobilePreviewShort');
+            if (longBtn) longBtn.className = 'trade-quick ' + (tradeRiskState.side === 'Buy' ? 'border-bybit-green/50 text-bybit-green bg-bybit-green/10' : '');
+            if (shortBtn) shortBtn.className = 'trade-quick ' + (tradeRiskState.side === 'Sell' ? 'border-bybit-red/50 text-bybit-red bg-bybit-red/10' : '');
+            updateLinkedRiskPrices();
+            updateTradePreview();
+        }
+
+        function updateLinkedRiskPrices() {
+            const e = tradeEls('mobile');
+            const price = previewPrice();
+            if (!e.tp || !e.sl || !price) return;
+            tradeRiskState.internalUpdate = true;
+            try {
+                if (tradeRiskState.tpPct !== null) {
+                    const pct = Number(tradeRiskState.tpPct) / 100;
+                    const target = tradeRiskState.side === 'Buy' ? price * (1 + pct) : price * (1 - pct);
+                    e.tp.value = normalizePrice(target);
+                }
+                if (tradeRiskState.slPct !== null) {
+                    const pct = Number(tradeRiskState.slPct) / 100;
+                    const target = tradeRiskState.side === 'Buy' ? price * (1 - pct) : price * (1 + pct);
+                    e.sl.value = normalizePrice(target);
+                }
+            } finally {
+                tradeRiskState.internalUpdate = false;
+            }
+            const stateEl = document.getElementById('mobileRiskLinkState');
+            if (stateEl) {
+                const parts = [];
+                if (tradeRiskState.tpPct !== null) parts.push(`TP ${Number(tradeRiskState.tpPct)}%`);
+                if (tradeRiskState.slPct !== null) parts.push(`SL ${Number(tradeRiskState.slPct)}%`);
+                stateEl.textContent = parts.length ? `Динамически: ${parts.join(' · ')}` : 'TP/SL вручную';
+                stateEl.className = 'text-[8px] ml-1 truncate ' + (parts.length ? 'text-bybit-yellow' : 'text-bybit-muted');
+            }
+        }
+
         function updateTradePreview() {
             const e = tradeEls('mobile');
             if (!e.margin) return;
+            updateLinkedRiskPrices();
             const qty = previewQty();
             const price = previewPrice();
             const notional = qty * price;
             const tp = Number(e.tp?.value || 0);
             const sl = Number(e.sl?.value || 0);
-            const side = window.__previewSide || 'Buy';
+            const side = tradeRiskState.side;
             const tpPnl = qty && tp ? (side === 'Buy' ? (tp-price) : (price-tp)) * qty : 0;
             const slPnl = qty && sl ? (side === 'Buy' ? (sl-price) : (price-sl)) * qty : 0;
             const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
@@ -1640,17 +1691,12 @@
         function fillRiskPreset(percent, field) {
             const price = previewPrice();
             if (!price) return;
-            const e = tradeEls('mobile');
-            const side = window.__previewSide || 'Buy';
-            const factor = Math.abs(Number(percent))/100;
-            const target = Number(percent) >= 0
-                ? (side === 'Buy' ? price*(1+factor) : price*(1-factor))
-                : (side === 'Buy' ? price*(1-factor) : price*(1+factor));
-            const input = field === 'tp' ? e.tp : e.sl;
-            if (!input) return;
-            input.value = normalizePrice(target);
-            syncTradeInputs('mobile');
+            const pct = Math.abs(Number(percent));
+            if (field === 'tp') tradeRiskState.tpPct = pct;
+            else tradeRiskState.slPct = pct;
+            updateLinkedRiskPrices();
             updateTradePreview();
+            syncTradeInputs('mobile');
         }
 
         async function loadTradeConfig() {
@@ -1809,9 +1855,17 @@
             [d,m].forEach((e,i)=>{
                 if(!e.margin) return;
                 e.orderType.addEventListener('change',()=>{updateLimitVisibility(); syncTradeInputs(i===0?'desktop':'mobile');});
-                [e.margin,e.leverage,e.limitPrice,e.tp,e.sl].forEach(x=>x?.addEventListener('input',()=>syncTradeInputs(i===0?'desktop':'mobile')));
-                e.long.addEventListener('click',()=>{ window.__previewSide='Buy'; updateTradePreview(); executeTrade('Buy'); });
-                e.short.addEventListener('click',()=>{ window.__previewSide='Sell'; updateTradePreview(); executeTrade('Sell'); });
+                [e.margin,e.leverage,e.limitPrice].forEach(x=>x?.addEventListener('input',()=>syncTradeInputs(i===0?'desktop':'mobile')));
+                e.tp?.addEventListener('input',()=>{
+                    if (!tradeRiskState.internalUpdate && i === 1) tradeRiskState.tpPct = null;
+                    syncTradeInputs(i===0?'desktop':'mobile');
+                });
+                e.sl?.addEventListener('input',()=>{
+                    if (!tradeRiskState.internalUpdate && i === 1) tradeRiskState.slPct = null;
+                    syncTradeInputs(i===0?'desktop':'mobile');
+                });
+                e.long.addEventListener('click',()=>{ setPreviewSide('Buy'); updateTradePreview(); executeTrade('Buy'); });
+                e.short.addEventListener('click',()=>{ setPreviewSide('Sell'); updateTradePreview(); executeTrade('Sell'); });
                 e.close.addEventListener('click',closeTrade);
             });
 
@@ -1825,6 +1879,8 @@
                 const v=Number(btn.dataset.risk);
                 fillRiskPreset(v, v >= 0 ? 'tp' : 'sl');
             }));
+            document.getElementById('mobilePreviewLong')?.addEventListener('click',()=>setPreviewSide('Buy'));
+            document.getElementById('mobilePreviewShort')?.addEventListener('click',()=>setPreviewSide('Sell'));
 
             const mobileTradeDock = document.getElementById('mobileTradeDock');
             const mobileTradeToggleBtn = document.getElementById('mobileTradeToggleBtn');
@@ -1839,7 +1895,7 @@
             if (mobileTradeToggleBtn) mobileTradeToggleBtn.addEventListener('click', () => setMobileTradeCollapsed(!mobileTradeDock.classList.contains('collapsed')));
             if (window.innerWidth < 768) setMobileTradeCollapsed(savedCollapsed);
 
-            updateLimitVisibility(); loadTradeConfig(); refreshPosition(); updateTradePreview();
+            updateLimitVisibility(); loadTradeConfig(); refreshPosition(); setPreviewSide('Buy'); updateTradePreview();
             connectPrivateWebSocket();
             setInterval(fetchLongShortRatio, 15000);
             setInterval(fetchBybitTickers, 30000);
