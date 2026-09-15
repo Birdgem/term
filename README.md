@@ -1,25 +1,47 @@
-# Bybit Scalping Terminal — Stage 2.5
+# Bybit Scalping Terminal — Render Stage 3
 
-Render Web Service for a Bybit Global Unified account.
+Stage 3 adds the server-side trading layer for Bybit Global Mainnet while keeping the API secret on Render.
 
-## Current read-only API
+## Current architecture
+Phone → Render Web Service → Bybit Global API
 
-- `GET /health` — service/config check
-- `GET /api/account` — Unified wallet balance
-- `GET /api/position` — all USDT linear positions
-- `GET /api/position?symbol=BTCUSDT` — one symbol position
-- `GET /api/orders` — current/open linear orders
-- `GET /api/orders?symbol=BTCUSDT` — current orders for one symbol
-- `GET /api/order-history` — last 50 linear orders
-- `GET /api/order-history?symbol=BTCUSDT` — last 50 orders for one symbol
-
-No order creation, cancellation, TP/SL or other trading action is enabled in this stage.
-
-## Render environment variables
-
+## Environment variables
+Required:
 - `BYBIT_API_KEY`
 - `BYBIT_API_SECRET`
 - `BYBIT_TESTNET=false`
 - `BYBIT_BASE_URL=https://api.bybit.com`
 
-The API secret is used only on the Render server and is never placed in `index.html`.
+Trading safety switch:
+- `TRADING_ENABLED=false` by default.
+- Set `TRADING_ENABLED=true` only when you are ready to allow live order actions from the terminal.
+
+Optional:
+- `BYBIT_RECV_WINDOW=5000`
+
+## Read-only endpoints
+- `GET /health`
+- `GET /api/config`
+- `GET /api/account`
+- `GET /api/position`
+- `GET /api/position?symbol=BTCUSDT`
+- `GET /api/orders`
+- `GET /api/orders?symbol=BTCUSDT`
+- `GET /api/order-history`
+- `GET /api/order-history?symbol=BTCUSDT`
+- `GET /api/instrument?symbol=BTCUSDT`
+
+## Trading endpoints
+All trading endpoints require `TRADING_ENABLED=true` and are server-side signed.
+
+- `POST /api/leverage` — `{ "symbol":"BTCUSDT", "leverage":"5" }`
+- `POST /api/order` — create Linear USDT perpetual Market/Limit order
+- `POST /api/cancel-order` — cancel by `orderId` or `orderLinkId`
+- `POST /api/cancel-all` — cancel all linear orders, optionally for one symbol
+- `POST /api/trading-stop` — set TP/SL/trailing stop on an open position
+- `POST /api/close-position` — market close an existing position using reduce-only
+
+The backend validates the basic order fields and forces `category=linear`. Instrument metadata is available so the next UI stage can normalize tick/quantity steps before sending orders.
+
+## Important
+This stage exposes live trading capability but does not yet wire the controls into the existing 2110-line HTML UI. The next stage should add the order/position panel to the terminal and use the instrument metadata for quantity/price normalization.
