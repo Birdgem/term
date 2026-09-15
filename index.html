@@ -718,6 +718,24 @@
         let marketWsPingInterval = null;
         let marketWsReconnectTimer = null;
 
+        // Real-time input can be much faster than a phone screen needs.
+        // Keep receiving the feed, but throttle expensive UI work.
+        const RT = {
+            priceMs: 200,       // 5 UI price updates/sec
+            orderbookMs: 300,   // ~3.3 orderbook recalculations/sec
+            overlaysMs: 1000,   // heavy S/R + wall lines once/sec
+            indicatorsMs: 1500, // RSI/MACD once/1.5 sec
+            lastPricePaint: 0,
+            lastOrderbookPaint: 0,
+            lastOverlaysPaint: 0,
+            lastIndicatorsPaint: 0,
+            pendingOrderbook: false,
+            pendingKline: null,
+            pendingPrice: 0,
+            pendingPct: null,
+            raf: 0
+        };
+
         let chart = null;
         let volumeChart = null;
         let rsiChart = null;
@@ -1535,8 +1553,8 @@
             });
             updateLimitVisibility(); loadTradeConfig(); refreshPosition();
             connectPrivateWebSocket();
-            setInterval(fetchLongShortRatio, 5000);
-            setInterval(fetchBybitTickers, 10000);
+            setInterval(fetchLongShortRatio, 15000);
+            setInterval(fetchBybitTickers, 30000);
             setInterval(loadTradeConfig, 300000);
         }
 
@@ -1550,7 +1568,7 @@
                     drawOrderBookWalls();
                     renderOrderbookWallsPanel();
                 }
-            }, 15000);
+            }, 30000);
         }
 
         async function fetchData() {
@@ -1655,7 +1673,15 @@
             }
         }
 
-        function processLiveOrderbook() {
+        function processLiveOrderbook(force = false) {
+            const now = performance.now();
+            if (!force && now - RT.lastOrderbookPaint < RT.orderbookMs) {
+                RT.pendingOrderbook = true;
+                scheduleRealtimePaint();
+                return;
+            }
+            RT.lastOrderbookPaint = now;
+            RT.pendingOrderbook = false;
             const bids = [...liveOrderbook.bids.entries()].map(([price, size]) => [price, size]).filter(x => x[1] > 0);
             const asks = [...liveOrderbook.asks.entries()].map(([price, size]) => [price, size]).filter(x => x[1] > 0);
             if (!bids.length && !asks.length) return;
@@ -1882,6 +1908,58 @@
             if (containerMobile) containerMobile.innerHTML = html;
         }
 
+        function scheduleRealtimePaint() {
+            if (RT.raf) return;
+            RT.raf = requestAnimationFrame(() => {
+                RT.raf = 0;
+                const now = performance.now();
+                if (now - RT.lastPricePaint >= RT.priceMs && (RT.pendingPrice || RT.pendingKline)) {
+                    if (RT.pendingPrice) {
+                        updateLivePrice(RT.pendingPrice, RT.pendingPct);
+                        RT.pendingPrice = 0;
+                        RT.pendingPct = null;
+                    }
+                    const k = RT.pendingKline;
+                    RT.pendingKline = null;
+                    RT.lastPricePaint = now;
+                    if (k) {
+                        candleSeries?.update(k);
+                        volumeSeries?.update({ time:k.time, value:k.volume, color:k.close >= k.open ? 'rgba(14,203,129,.55)' : 'rgba(246,70,93,.55)' });
+                        updateOHLCTooltip(k);
+                    }
+                }
+                if (RT.pendingOrderbook && now - RT.lastOrderbookPaint >= RT.orderbookMs) {
+                    processLiveOrderbook(true);
+                }
+                if (rawCandles.length && now - RT.lastOverlaysPaint >= RT.overlaysMs) {
+                    RT.lastOverlaysPaint = now;
+                    updateOverlays();
+                }
+                if (rawCandles.length && now - RT.lastIndicatorsPaint >= RT.indicatorsMs) {
+                    RT.lastIndicatorsPaint = now;
+                    updateIndicators();
+                }
+                if (RT.pendingPrice || RT.pendingKline || RT.pendingOrderbook || (rawCandles.length && (now-RT.lastOverlaysPaint >= RT.overlaysMs || now-RT.lastIndicatorsPaint >= RT.indicatorsMs))) {
+                    scheduleRealtimePaint();
+                }
+            });
+        }
+
+        function updateLivePriceThrottled(price, changePct = null, force = false) {
+            const n = Number(price);
+            if (!Number.isFinite(n) || n <= 0) return;
+            RT.pendingPrice = n;
+            if (changePct !== null && Number.isFinite(Number(changePct))) RT.pendingPct = Number(changePct);
+            const now = performance.now();
+            if (force || now - RT.lastPricePaint >= RT.priceMs) {
+                updateLivePrice(RT.pendingPrice, RT.pendingPct);
+                RT.pendingPrice = 0;
+                RT.pendingPct = null;
+                RT.lastPricePaint = now;
+            }
+            scheduleRealtimePaint();
+        }
+
         function updateLivePrice(price, changePct = null) {
             if (!Number.isFinite(price) || price <= 0) return;
             livePrice = price;
@@ -2041,13 +2119,13 @@
                     const price = Number(t?.lastPrice || t?.markPrice || t?.indexPrice);
                     const pct = t?.price24hPcnt !== undefined ? Number(t.price24hPcnt) * 100 : null;
                     if (price) {
-                        updateLivePrice(price, pct);
+                        updateLivePriceThrottled(price, pct);
                         if (rawCandles.length) {
                             const lc = rawCandles[rawCandles.length-1];
                             const liveCandle = {...lc, close: price, high: Math.max(lc.high, price), low: Math.min(lc.low, price)};
                             rawCandles[rawCandles.length-1] = liveCandle;
-                            candleSeries.update(liveCandle);
-                            updateOHLCTooltip(liveCandle);
+                            RT.pendingKline = liveCandle;
+                            scheduleRealtimePaint();
                         }
                     }
                     return;
@@ -2072,12 +2150,9 @@
                         if (rawCandles[lastIndex].time === liveCandle.time) rawCandles[lastIndex] = liveCandle;
                         else rawCandles.push(liveCandle);
                     }
-                    candleSeries.update(liveCandle);
-                    volumeSeries.update({ time: liveCandle.time, value: liveCandle.volume, color: liveCandle.close >= liveCandle.open ? 'rgba(14,203,129,.55)' : 'rgba(246,70,93,.55)' });
-                    updateLivePrice(liveCandle.close);
-                    updateOHLCTooltip(liveCandle);
-                    updateOverlays();
-                    updateIndicators();
+                    RT.pendingKline = liveCandle;
+                    updateLivePriceThrottled(liveCandle.close, null, true);
+                    scheduleRealtimePaint();
                 }
             };
 

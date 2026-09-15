@@ -110,12 +110,27 @@ marketWss.on('connection', (client, request, ctx) => {
 
   const upstream = new WebSocket('wss://stream.bybit.com/v5/public/linear');
   let pingTimer = null;
+  let flushTimer = null;
   let closed = false;
+  let latestTicker = null;
+  let bookBids = new Map();
+  let bookAsks = new Map();
+  let bookDirty = false;
+  let bookUpdateId = 0;
+
+  const sendBookSnapshot = () => {
+    if (!bookDirty || client.readyState !== WebSocket.OPEN) return;
+    const bids = [...bookBids.entries()].sort((a,b)=>b[0]-a[0]).slice(0,50).map(([p,s])=>[String(p),String(s)]);
+    const asks = [...bookAsks.entries()].sort((a,b)=>a[0]-b[0]).slice(0,50).map(([p,s])=>[String(p),String(s)]);
+    client.send(JSON.stringify({topic:`orderbook.50.${symbol}`, type:'snapshot', ts:Date.now(), data:{s:symbol,b:bids,a:asks,u:bookUpdateId}}));
+    bookDirty = false;
+  };
 
   const shutdown = () => {
     if (closed) return;
     closed = true;
     if (pingTimer) clearInterval(pingTimer);
+    if (flushTimer) clearInterval(flushTimer);
     try { upstream.close(); } catch {}
     try { if (client.readyState === WebSocket.OPEN) client.close(); } catch {}
   };
@@ -133,11 +148,41 @@ marketWss.on('connection', (client, request, ctx) => {
     }));
     pingTimer = setInterval(() => {
       if (upstream.readyState === WebSocket.OPEN) upstream.send(JSON.stringify({ op: 'ping' }));
-    }, 15000);
+    }, 20000);
+    // Coalesce the very fast Bybit orderbook/ticker stream before sending it to the phone.
+    // The phone still receives price/depth updates several times per second, but Render
+    // does not have to forward every ~20ms orderbook delta.
+    flushTimer = setInterval(() => {
+      if (client.readyState !== WebSocket.OPEN) return;
+      if (latestTicker) { client.send(latestTicker); latestTicker = null; }
+      sendBookSnapshot();
+    }, 200);
   });
 
   upstream.on('message', data => {
-    if (client.readyState === WebSocket.OPEN) client.send(data.toString());
+    let msg;
+    try { msg = JSON.parse(data.toString()); } catch { return; }
+    if (!msg.topic || !msg.data) return;
+    if (msg.topic === `tickers.${symbol}`) {
+      latestTicker = data.toString();
+      return;
+    }
+    if (msg.topic === `orderbook.50.${symbol}`) {
+      if (msg.type === 'snapshot') {
+        bookBids = new Map((msg.data?.b || []).map(x=>[Number(x[0]),Number(x[1])]));
+        bookAsks = new Map((msg.data?.a || []).map(x=>[Number(x[0]),Number(x[1])]));
+      } else {
+        for (const x of (msg.data?.b || [])) { const p=Number(x[0]), q=Number(x[1]); if(!p) continue; if(q===0) bookBids.delete(p); else bookBids.set(p,q); }
+        for (const x of (msg.data?.a || [])) { const p=Number(x[0]), q=Number(x[1]); if(!p) continue; if(q===0) bookAsks.delete(p); else bookAsks.set(p,q); }
+      }
+      bookUpdateId = Number(msg.data?.u || bookUpdateId || 0);
+      bookDirty = true;
+      return;
+    }
+    // Kline messages are naturally sparse; forward them immediately.
+    if (msg.topic === `kline.${interval}.${symbol}` && client.readyState === WebSocket.OPEN) {
+      client.send(data.toString());
+    }
   });
 
   upstream.on('error', err => {
