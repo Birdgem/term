@@ -977,6 +977,9 @@
         let marketWs = null;
         let marketWsPingInterval = null;
         let marketWsReconnectTimer = null;
+        let marketWsWatchdogTimer = null;
+        let lastMarketTickAt = 0;
+        let marketWsOpenedAt = 0;
 
         // Real-time input can be much faster than a phone screen needs.
         // Keep receiving the feed, but throttle expensive UI work.
@@ -2882,6 +2885,7 @@
             if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
             if (wsFallbackTimer) { clearTimeout(wsFallbackTimer); wsFallbackTimer = null; }
             if (marketWsPingInterval) { clearInterval(marketWsPingInterval); marketWsPingInterval = null; }
+            if (marketWsWatchdogTimer) { clearInterval(marketWsWatchdogTimer); marketWsWatchdogTimer = null; }
         }
 
         function closeMarketWs() {
@@ -2907,6 +2911,8 @@
             wsMode = forceMode === 'proxy' ? 'PROXY' : 'DIRECT';
             wsAttempt += 1;
             const attempt = wsAttempt;
+            lastMarketTickAt = 0;
+            marketWsOpenedAt = 0;
             setWsStatus(wsMode, 'ПОДКЛЮЧЕНИЕ', 'connecting');
 
             let url;
@@ -2952,6 +2958,27 @@
                 marketWsPingInterval = setInterval(() => {
                     if (marketWs && marketWs.readyState === WebSocket.OPEN) marketWs.send(JSON.stringify({op:'ping'}));
                 }, 15000);
+
+                // A socket can report OPEN while the subscription is effectively dead.
+                // Do not let that half-open state freeze the price for minutes: require a
+                // real market tick shortly after connect and recover automatically.
+                marketWsWatchdogTimer = setInterval(() => {
+                    if (attempt !== wsAttempt || activeSymbolAtConnect !== currentSymbol || activeIntervalAtConnect !== currentInterval) return;
+                    if (!marketWs || marketWs.readyState !== WebSocket.OPEN) return;
+                    const now = Date.now();
+                    const age = lastMarketTickAt ? now - lastMarketTickAt : now - marketWsOpenedAt;
+                    const staleLimit = wsMode === 'DIRECT' ? 4500 : 6000;
+                    if (age > staleLimit) {
+                        console.warn('Market WS watchdog: stale stream, recovering', wsMode, age);
+                        try { marketWs.__intentionalClose = true; marketWs.close(); } catch(e) {}
+                        if (wsMode === 'DIRECT') connectWebSocket('proxy');
+                        else connectWebSocket('proxy');
+                        return;
+                    }
+                    // REST is only a recovery path while realtime is unhealthy. It keeps the
+                    // trading panel/RR alive even during a socket reconnect.
+                    if (age > 2500) fetchFreshTicker(activeSymbolAtConnect).catch(() => {});
+                }, 1000);
             };
 
             // Direct WS gets a short grace period. If the network blocks it, switch to Render proxy.
@@ -2961,7 +2988,7 @@
                         try { marketWs.__intentionalClose = true; marketWs.close(); } catch(e) {}
                         connectWebSocket('proxy');
                     }
-                }, 6000);
+                }, 4500);
             }
 
             marketWs.onmessage = (event) => {
@@ -2972,6 +2999,7 @@
                 if (!msg.topic.includes(activeSymbolAtConnect)) return;
 
                 if (msg.topic.startsWith('tickers.')) {
+                    lastMarketTickAt = Date.now();
                     const t = Array.isArray(msg.data) ? msg.data[0] : msg.data;
                     const price = Number(t?.lastPrice || t?.markPrice || t?.indexPrice);
                     const pct = t?.price24hPcnt !== undefined ? Number(t.price24hPcnt) * 100 : null;
@@ -2997,6 +3025,7 @@
                 }
 
                 if (msg.topic.startsWith('kline.')) {
+                    lastMarketTickAt = Date.now();
                     const k = Array.isArray(msg.data) ? msg.data[0] : null;
                     if (!k) return;
                     const liveCandle = {

@@ -181,6 +181,9 @@ marketWss.on('connection', (client, request, ctx) => {
     try { msg = JSON.parse(data.toString()); } catch { return; }
     if (!msg.topic || !msg.data) return;
     if (msg.topic === `tickers.${symbol}`) {
+      // First ticker goes to the phone immediately; subsequent ticks are coalesced.
+      // This removes the initial 200ms batching delay without increasing steady-state load.
+      if (client.readyState === WebSocket.OPEN && !latestTicker) client.send(data.toString());
       latestTicker = data.toString();
       return;
     }
