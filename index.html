@@ -323,7 +323,12 @@
             /* Bybit-like mobile candles: fewer, wider bars with more breathing room. */
             #priceChartContainer { min-height: 330px; }
             #priceChartContainer .tv-lightweight-charts { touch-action: pan-x pan-y; }
-            #scalpScoreOverlay { top: 8px; right: 8px; left: auto; }
+            /* Mobile: keep the score out of the candle area. It lives in the compact chart toolbar. */
+            #scalpScoreOverlay { display:none !important; }
+            #mobileScalpScore { display:flex !important; }
+            .mobile-scalp-score { min-width:74px; max-width:92px; height:28px; padding:0 6px; border:1px solid #30363d; border-radius:7px; background:#0d1117; align-items:center; gap:4px; white-space:nowrap; overflow:hidden; }
+            .mobile-scalp-score .score { font:900 12px ui-monospace,monospace; }
+            .mobile-scalp-score .bias { font:900 8px ui-monospace,monospace; overflow:hidden; text-overflow:ellipsis; }
             .scalp-score-card { min-width: 146px; }
             .scalp-score-bar { height: 4px; border-radius: 999px; overflow: hidden; background:#21262d; }
             .scalp-score-fill { height:100%; width:50%; transition:width .25s ease; }
@@ -595,11 +600,15 @@
             </div>
 
             <div id="mobileChartToolbar" class="md:hidden flex items-center justify-between px-2 py-1.5 bg-bybit-card border-b border-bybit-border text-[10px] font-mono">
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 min-w-0">
                     <span class="text-bybit-muted">CHART</span>
                     <span class="text-bybit-green">REALTIME</span>
+                    <div id="mobileScalpScore" class="mobile-scalp-score hidden">
+                        <span id="mobileScalpScoreValue" class="score text-bybit-yellow">50</span>
+                        <span id="mobileScalpScoreBias" class="bias text-bybit-muted">WAIT</span>
+                    </div>
                 </div>
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1 shrink-0">
                     <button class="chart-quick-btn active" data-bars="40">40</button>
                     <button class="chart-quick-btn" data-bars="70">70</button>
                     <button class="chart-quick-btn" data-bars="110">110</button>
@@ -2947,15 +2956,19 @@
             const trend = document.getElementById('scalpTrend');
             const momentum = document.getElementById('scalpMomentum');
             const volume = document.getElementById('scalpVolumeState');
+            const mobileValue = document.getElementById('mobileScalpScoreValue');
+            const mobileBias = document.getElementById('mobileScalpScoreBias');
             if (value) value.innerText = score.score;
             if (bias) bias.innerText = score.bias;
+            if (mobileValue) mobileValue.innerText = score.score;
+            if (mobileBias) mobileBias.innerText = score.bias;
             if (fill) fill.style.width = `${score.score}%`;
             if (trend) trend.innerText = score.trend;
             if (momentum) momentum.innerText = score.momentum;
             if (volume) volume.innerText = score.volumeState;
 
             const cls = score.score >= 63 ? 'text-bybit-green' : score.score <= 37 ? 'text-bybit-red' : 'text-bybit-yellow';
-            [value, bias, fill].forEach(el => {
+            [value, bias, fill, mobileValue, mobileBias].forEach(el => {
                 if (!el) return;
                 el.classList.remove('text-bybit-green','text-bybit-red','text-bybit-yellow');
                 if (el === fill) return;
