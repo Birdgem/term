@@ -1679,7 +1679,7 @@
 
         // ===== Stage 4 Trading UI =====
         const tradeState = { instrument: null, tradingEnabled: false, position: null, busy: false, positionBusy: false };
-        const tradeRiskState = { side: 'Buy', tpPct: null, slPct: null, internalUpdate: false };
+        const tradeRiskState = { side: 'Buy', tpPct: null, slPct: null, rrRatio: null, rrRiskPct: 0.5, internalUpdate: false };
         let privateWs = null;
         let privateWsPingTimer = null;
         let privateWsReconnectTimer = null;
@@ -1833,15 +1833,32 @@
             if (!e.tp || !e.sl || !price) return;
             tradeRiskState.internalUpdate = true;
             try {
-                if (tradeRiskState.tpPct !== null) {
-                    const pct = Number(tradeRiskState.tpPct) / 100;
-                    const target = tradeRiskState.side === 'Buy' ? price * (1 + pct) : price * (1 - pct);
-                    e.tp.value = normalizePrice(target);
-                }
-                if (tradeRiskState.slPct !== null) {
-                    const pct = Number(tradeRiskState.slPct) / 100;
-                    const target = tradeRiskState.side === 'Buy' ? price * (1 - pct) : price * (1 + pct);
-                    e.sl.value = normalizePrice(target);
+                // RR dynamic mode owns both TP and SL. As the market price moves,
+                // the whole risk/reward structure follows it while preserving the
+                // selected ratio and risk distance.
+                if (tradeRiskState.rrRatio !== null) {
+                    const riskPct = Math.max(0.01, Number(tradeRiskState.rrRiskPct) || 0.5);
+                    const rewardPct = riskPct * Number(tradeRiskState.rrRatio);
+                    const r = riskPct / 100;
+                    const rw = rewardPct / 100;
+                    if (tradeRiskState.side === 'Buy') {
+                        e.sl.value = normalizePrice(price * (1 - r));
+                        e.tp.value = normalizePrice(price * (1 + rw));
+                    } else {
+                        e.sl.value = normalizePrice(price * (1 + r));
+                        e.tp.value = normalizePrice(price * (1 - rw));
+                    }
+                } else {
+                    if (tradeRiskState.tpPct !== null) {
+                        const pct = Number(tradeRiskState.tpPct) / 100;
+                        const target = tradeRiskState.side === 'Buy' ? price * (1 + pct) : price * (1 - pct);
+                        e.tp.value = normalizePrice(target);
+                    }
+                    if (tradeRiskState.slPct !== null) {
+                        const pct = Number(tradeRiskState.slPct) / 100;
+                        const target = tradeRiskState.side === 'Buy' ? price * (1 - pct) : price * (1 + pct);
+                        e.sl.value = normalizePrice(target);
+                    }
                 }
             } finally {
                 tradeRiskState.internalUpdate = false;
@@ -1849,8 +1866,11 @@
             const stateEl = document.getElementById('mobileRiskLinkState');
             if (stateEl) {
                 const parts = [];
-                if (tradeRiskState.tpPct !== null) parts.push(`TP ${Number(tradeRiskState.tpPct)}%`);
-                if (tradeRiskState.slPct !== null) parts.push(`SL ${Number(tradeRiskState.slPct)}%`);
+                if (tradeRiskState.rrRatio !== null) parts.push(`RR 1:${Number(tradeRiskState.rrRatio).toFixed(2)} · риск ${Number(tradeRiskState.rrRiskPct).toFixed(2)}%`);
+                else {
+                    if (tradeRiskState.tpPct !== null) parts.push(`TP ${Number(tradeRiskState.tpPct)}%`);
+                    if (tradeRiskState.slPct !== null) parts.push(`SL ${Number(tradeRiskState.slPct)}%`);
+                }
                 stateEl.textContent = parts.length ? `Динамически: ${parts.join(' · ')}` : 'TP/SL вручную';
                 stateEl.className = 'text-[8px] ml-1 truncate ' + (parts.length ? 'text-bybit-yellow' : 'text-bybit-muted');
             }
@@ -1890,19 +1910,19 @@
             const hasSl = side === 'Buy' ? sl > 0 && sl < price : sl > price;
             tradeRiskState.tpPct = null;
             tradeRiskState.slPct = null;
+            tradeRiskState.rrRatio = r;
             if (!hasTp && !hasSl) {
-                const riskPct = 0.5;
-                const risk = price * riskPct / 100;
-                sl = side === 'Buy' ? price - risk : price + risk;
-                tp = side === 'Buy' ? price + risk * r : price - risk * r;
+                tradeRiskState.rrRiskPct = 0.5;
             } else if (hasSl) {
-                const risk = Math.abs(price - sl);
-                tp = side === 'Buy' ? price + risk * r : price - risk * r;
+                tradeRiskState.rrRiskPct = Math.abs(price - sl) / price * 100;
             } else if (hasTp) {
-                const reward = Math.abs(tp - price);
-                const risk = reward / r;
-                sl = side === 'Buy' ? price - risk : price + risk;
+                const rewardPct = Math.abs(tp - price) / price * 100;
+                tradeRiskState.rrRiskPct = rewardPct / r;
             }
+            // Rebuild both levels from the current price using the selected RR.
+            const risk = price * (Number(tradeRiskState.rrRiskPct) / 100);
+            tp = side === 'Buy' ? price + risk * r : price - risk * r;
+            sl = side === 'Buy' ? price - risk : price + risk;
             if (e.tp) e.tp.value = normalizePrice(tp);
             if (e.sl) e.sl.value = normalizePrice(sl);
             updateTradePreview();
@@ -1938,6 +1958,7 @@
             const price = previewPrice();
             if (!price) return;
             const pct = Math.abs(Number(percent));
+            tradeRiskState.rrRatio = null;
             if (field === 'tp') tradeRiskState.tpPct = pct;
             else tradeRiskState.slPct = pct;
             updateLinkedRiskPrices();
@@ -2256,11 +2277,11 @@
                 e.orderType.addEventListener('change',()=>{updateLimitVisibility(); syncTradeInputs(i===0?'desktop':'mobile');});
                 [e.margin,e.leverage,e.limitPrice].forEach(x=>x?.addEventListener('input',()=>syncTradeInputs(i===0?'desktop':'mobile')));
                 e.tp?.addEventListener('input',()=>{
-                    if (!tradeRiskState.internalUpdate && i === 1) tradeRiskState.tpPct = null;
+                    if (!tradeRiskState.internalUpdate && i === 1) { tradeRiskState.tpPct = null; tradeRiskState.rrRatio = null; }
                     syncTradeInputs(i===0?'desktop':'mobile');
                 });
                 e.sl?.addEventListener('input',()=>{
-                    if (!tradeRiskState.internalUpdate && i === 1) tradeRiskState.slPct = null;
+                    if (!tradeRiskState.internalUpdate && i === 1) { tradeRiskState.slPct = null; tradeRiskState.rrRatio = null; }
                     syncTradeInputs(i===0?'desktop':'mobile');
                 });
                 e.long.addEventListener('click',()=>{ setPreviewSide('Buy'); updateTradePreview(); executeTrade('Buy'); });
