@@ -1689,6 +1689,7 @@
             slPct: null,
             rrRatio: null,
             rrRiskPct: 0.5,
+            entryPrice: 0,
             tpPrice: 0,
             slPrice: 0,
             internalUpdate: false
@@ -1824,8 +1825,15 @@
         function previewPrice() {
             const e = tradeEls('mobile');
             const type = e.orderType?.value || 'Market';
-            const raw = type === 'Limit' ? Number(e.limitPrice?.value) : Number(livePrice || 0);
-            return raw > 0 ? raw : 0;
+            const live = Number(livePrice || 0);
+            const limit = Number(e.limitPrice?.value || 0);
+            // Market preview must always follow the realtime price. For the rare frame
+            // where livePrice is not populated yet, use the visible price as a last-resort
+            // local fallback so dynamic TP/SL never stays at zero.
+            if (type === 'Limit') return limit > 0 ? limit : live;
+            if (live > 0) return live;
+            const visible = Number(String(document.getElementById('lastPrice')?.textContent || '').replace(/[^0-9.]/g, ''));
+            return visible > 0 ? visible : 0;
         }
 
         function previewQty() {
@@ -1874,13 +1882,18 @@
         function updateLinkedRiskPrices() {
             const e = tradeEls('mobile');
             const price = previewPrice();
-            if (!e.tp || !e.sl || !(price > 0)) return;
-            if (tradeRiskState.mode === 'manual') return;
+            if (!e.tp || !e.sl || !(price > 0) || tradeRiskState.mode === 'manual') return;
+
             const levels = calculateLinkedRisk(price);
+            // Keep the calculation state independent from the DOM. The inputs are only a
+            // rendering target; no later sync operation is allowed to turn dynamic levels
+            // back into zero.
+            tradeRiskState.entryPrice = price;
+            tradeRiskState.tpPrice = levels.tp > 0 ? Number(normalizePrice(levels.tp)) : 0;
+            tradeRiskState.slPrice = levels.sl > 0 ? Number(normalizePrice(levels.sl)) : 0;
+
             tradeRiskState.internalUpdate = true;
             try {
-                tradeRiskState.tpPrice = levels.tp > 0 ? Number(normalizePrice(levels.tp)) : 0;
-                tradeRiskState.slPrice = levels.sl > 0 ? Number(normalizePrice(levels.sl)) : 0;
                 e.tp.value = tradeRiskState.tpPrice > 0 ? String(tradeRiskState.tpPrice) : '';
                 e.sl.value = tradeRiskState.slPrice > 0 ? String(tradeRiskState.slPrice) : '';
                 const d = tradeEls('desktop');
@@ -1889,6 +1902,7 @@
             } finally {
                 tradeRiskState.internalUpdate = false;
             }
+
             const stateEl = document.getElementById('mobileRiskLinkState');
             if (stateEl) {
                 const parts = [];
@@ -1898,6 +1912,29 @@
                 stateEl.textContent = parts.length ? `Динамически: ${parts.join(' · ')}` : 'TP/SL вручную';
                 stateEl.className = 'text-[8px] ml-1 truncate ' + (parts.length ? 'text-bybit-yellow' : 'text-bybit-muted');
             }
+        }
+
+        function renderDynamicRiskNow() {
+            // Dedicated reactive path for realtime ticks. Do not depend on any chart redraw
+            // or heavy analytics cycle.
+            if (tradeRiskState.mode === 'manual') return;
+            updateLinkedRiskPrices();
+            updateRiskRewardDisplay(
+                previewPrice(),
+                Number(tradeRiskState.tpPrice || 0),
+                Number(tradeRiskState.slPrice || 0),
+                previewQty(),
+                tradeRiskState.side
+            );
+        }
+
+        let dynamicRiskTimer = null;
+        function ensureDynamicRiskTicker() {
+            if (dynamicRiskTimer) return;
+            dynamicRiskTimer = setInterval(() => {
+                if (tradeRiskState.mode === 'manual') return;
+                renderDynamicRiskNow();
+            }, 250);
         }
 
         function updateRiskRewardDisplay(price, tp, sl, qty, side) {
@@ -1938,7 +1975,8 @@
             tradeRiskState.rrRatio = r;
             tradeRiskState.tpPct = null;
             tradeRiskState.slPct = null;
-            updateLinkedRiskPrices();
+            ensureDynamicRiskTicker();
+            renderDynamicRiskNow();
             updateTradePreview();
         }
 
@@ -1975,7 +2013,8 @@
             tradeRiskState.tpPct = field === 'tp' ? pct : null;
             tradeRiskState.slPct = field === 'sl' ? pct : null;
             tradeRiskState.mode = field === 'tp' ? 'tp' : 'sl';
-            updateLinkedRiskPrices();
+            ensureDynamicRiskTicker();
+            renderDynamicRiskNow();
             updateTradePreview();
         }
 
@@ -2294,6 +2333,7 @@
                         tradeRiskState.mode = 'manual';
                         tradeRiskState.tpPct = null; tradeRiskState.slPct = null; tradeRiskState.rrRatio = null;
                         tradeRiskState.tpPrice = Number(e.tp.value || 0);
+                        tradeRiskState.entryPrice = previewPrice();
                     }
                     syncTradeInputs(i===0?'desktop':'mobile');
                 });
@@ -2302,6 +2342,7 @@
                         tradeRiskState.mode = 'manual';
                         tradeRiskState.tpPct = null; tradeRiskState.slPct = null; tradeRiskState.rrRatio = null;
                         tradeRiskState.slPrice = Number(e.sl.value || 0);
+                        tradeRiskState.entryPrice = previewPrice();
                     }
                     syncTradeInputs(i===0?'desktop':'mobile');
                 });
@@ -2350,7 +2391,7 @@
             if (mobileTradeToggleBtn) mobileTradeToggleBtn.addEventListener('click', () => setMobileTradeCollapsed(!mobileTradeDock.classList.contains('collapsed')));
             if (window.innerWidth < 768) setMobileTradeCollapsed(savedCollapsed);
 
-            updateLimitVisibility(); loadTradeConfig(); refreshPosition(); setPreviewSide('Buy'); updateTradePreview();
+            updateLimitVisibility(); loadTradeConfig(); refreshPosition(); setPreviewSide('Buy'); ensureDynamicRiskTicker(); renderDynamicRiskNow(); updateTradePreview();
             connectPrivateWebSocket();
             setInterval(fetchLongShortRatio, 15000);
             setInterval(fetchBybitTickers, 30000);
@@ -2841,6 +2882,7 @@
             if (!Number.isFinite(price) || price <= 0) return;
             livePrice = price;
             document.getElementById('lastPrice').innerText = formatPrice(price);
+            renderDynamicRiskNow();
             updateTradePreview();
             if (changePct !== null && Number.isFinite(changePct)) {
                 live24hChange = changePct;

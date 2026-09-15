@@ -1,15 +1,13 @@
-# Trading Terminal — Stage 5.10.3 / 5.11.1 Market Watchdog
+# Trading Terminal — Stage 5.10.4 Dynamic Risk Follow
 
-Mobile Bybit scalping terminal.
+Based on Stage 5.10.3 / 5.11.1.
 
-## Stage 5.10.3 / 5.11.1
-- Realtime market watchdog detects half-open/dead WebSocket subscriptions.
-- Direct Bybit WS falls back to Render proxy if no real market ticks arrive quickly.
-- Proxy reconnects if its upstream stream becomes stale.
-- REST ticker is used only as a lightweight recovery path while realtime is unhealthy.
-- First ticker from Render proxy is forwarded immediately instead of waiting for the coalescing interval.
-- Dynamic TP/SL and RR continue to update from the freshest recovered price.
+## Fix
+- Dynamic TP/SL/RR is rendered from a dedicated local state.
+- Dynamic levels recalculate from the current realtime price every 250 ms while dynamic mode is active.
+- Realtime price transport is not changed.
+- Market preview uses livePrice directly, with a visible-price fallback only if livePrice has not populated yet.
+- RR/TP/SL presets force an immediate render and no longer depend on DOM input events.
+- Manual TP/SL input switches to manual mode and records the current entry reference.
 
-Trading remains disabled unless `TRADING_ENABLED=true` is explicitly configured.
-
-Dynamic RR state fix: RR/TP/SL values are now owned by tradeRiskState and are recalculated from livePrice without stale form values overwriting them. Manual edits switch back to manual mode. Realtime market-watchdog logic is preserved unchanged.
+Trading remains disabled unless explicitly enabled via TRADING_ENABLED.
