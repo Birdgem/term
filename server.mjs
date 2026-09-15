@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import {
-  getConfig, getPrivateWsAuth, getWalletBalance, getPosition, getOpenOrders, getOrderHistory,
+  getConfig, getPrivateWsAuth, getWalletBalance, getPublicTicker, getPosition, getOpenOrders, getOrderHistory,
   getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition, closePartialPosition
 } from './bybit.mjs';
 
@@ -34,6 +34,13 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/health') return json(res, 200, { ok: true, service: 'bybit-scalping-terminal', ...getConfig() });
     if (url.pathname === '/api/config') return json(res, 200, { ok: true, ...getConfig() });
     if (url.pathname === '/api/ws-auth') return json(res, 200, { ok: true, ...getPrivateWsAuth() });
+
+    if (url.pathname === '/api/market-ticker') {
+      const symbol = url.searchParams.get('symbol') || '';
+      if (!symbol) return json(res, 400, { ok: false, error: 'symbol is required' });
+      const data = await getPublicTicker(symbol);
+      return json(res, 200, { ok: true, result: data.result });
+    }
 
     if (url.pathname === '/api/account' || url.pathname === '/account') {
       const data = await getWalletBalance(); return json(res, 200, { ok: true, result: data.result });

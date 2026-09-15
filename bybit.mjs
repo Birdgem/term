@@ -70,6 +70,13 @@ export function getConfig() {
   return { testnet: USE_TESTNET, baseUrl: BASE_URL, configured: Boolean(API_KEY && API_SECRET), tradingEnabled: TRADING_ENABLED };
 }
 
+
+export async function getPublicTicker(symbol = '') {
+  const params = { category: 'linear' };
+  if (symbol) params.symbol = symbol.toUpperCase();
+  return request('GET', '/v5/market/tickers', params, false);
+}
+
 export async function getWalletBalance() {
   return request('GET', '/v5/account/wallet-balance', { accountType: 'UNIFIED' });
 }

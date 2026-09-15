@@ -2350,6 +2350,8 @@
         }
 
         async function fetchData() {
+            const symbolAtLoad = currentSymbol;
+            const intervalAtLoad = currentInterval;
             try {
                 const icon = document.getElementById('refreshIcon');
                 if (icon) icon.classList.add('animate-spin');
@@ -2357,8 +2359,24 @@
                 if (orderbookPollTimer) clearInterval(orderbookPollTimer);
                 clearAllSeriesAndLines();
 
-                const url = `https://api.bybit.com/v5/market/kline?category=linear&symbol=${currentSymbol}&interval=${currentInterval}&limit=200`;
-                const response = await fetch(url);
+                // IMPORTANT: market realtime must not wait for the heavy candle/overlay REST load.
+                // Start the public WS immediately, so price and dynamic TP/SL can move even if
+                // the initial REST request is slow on a mobile network.
+                connectWebSocket();
+
+                // Get the current ticker in parallel with candles. This gives the trading panel
+                // a fresh price as early as possible instead of waiting for 200 candles.
+                fetchFreshTicker(symbolAtLoad);
+
+                const url = `https://api.bybit.com/v5/market/kline?category=linear&symbol=${symbolAtLoad}&interval=${intervalAtLoad}&limit=200`;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                let response;
+                try {
+                    response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+                } finally {
+                    clearTimeout(timeout);
+                }
                 const json = await response.json();
 
                 if (json.retCode !== 0 || !json.result.list) {
@@ -2393,8 +2411,12 @@
                         }
                     });
 
-                    livePrice = lastCandle.close;
-                    document.getElementById('lastPrice').innerText = formatPrice(lastCandle.close);
+                    // Candle history is a baseline only. If the realtime ticker already
+                    // arrived, keep that fresher price instead of rolling the UI backwards.
+                    if (!(livePrice > 0)) livePrice = lastCandle.close;
+                    const displayPrice = livePrice > 0 ? livePrice : lastCandle.close;
+                    document.getElementById('lastPrice').innerText = formatPrice(displayPrice);
+                    updateTradePreview();
                     
                     const changeStr = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
                     const changeEl = document.getElementById('priceChange');
@@ -2440,7 +2462,8 @@
                 syncAllChartRanges();
                 updateIndicatorVisibility();
 
-                connectWebSocket();
+                // WS was started at the beginning of fetchData. Keep private WS here because
+                // it is authenticated and independent from public market data.
                 connectPrivateWebSocket();
                 setupOrderbookAutoRefresh();
 
@@ -2449,6 +2472,39 @@
             } finally {
                 const icon = document.getElementById('refreshIcon');
                 if (icon) setTimeout(() => icon.classList.remove('animate-spin'), 400);
+            }
+        }
+
+        async function fetchFreshTicker(symbol) {
+            const sym = String(symbol || currentSymbol).toUpperCase();
+            if (!sym) return;
+            const direct = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${encodeURIComponent(sym)}`;
+            const render = `/api/market-ticker?symbol=${encodeURIComponent(sym)}`;
+            const get = async (url) => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 2500);
+                try {
+                    const r = await fetch(url, { cache: 'no-store', signal: controller.signal });
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    const j = await r.json();
+                    const t = j?.result?.list?.[0] || j?.result?.result?.list?.[0] || j?.result?.list?.[0];
+                    const price = Number(t?.lastPrice || t?.markPrice || t?.indexPrice);
+                    const pct = t?.price24hPcnt !== undefined ? Number(t.price24hPcnt) * 100 : null;
+                    if (!(price > 0)) throw new Error('ticker price missing');
+                    return { price, pct };
+                } finally { clearTimeout(timer); }
+            };
+            // Direct phone -> Bybit first; Render is a fast fallback if direct REST is blocked.
+            for (const url of [direct, render]) {
+                if (sym !== currentSymbol) return;
+                try {
+                    const t = await get(url);
+                    if (sym !== currentSymbol) return;
+                    updateLivePrice(t.price, t.pct);
+                    return;
+                } catch (e) {
+                    console.debug('Fresh ticker attempt failed:', e?.message || e);
+                }
             }
         }
 
