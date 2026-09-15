@@ -1806,8 +1806,13 @@
         function previewPrice() {
             const e = tradeEls('mobile');
             const type = e.orderType?.value || 'Market';
-            const raw = type === 'Limit' ? Number(e.limitPrice?.value) : Number(livePrice || 0);
-            return raw > 0 ? raw : 0;
+            if (type === 'Limit') {
+                const limit = Number(e.limitPrice?.value || 0);
+                return limit > 0 ? limit : 0;
+            }
+            // For Market orders the ONLY source of dynamic risk pricing is the
+            // freshest realtime price. Never use the candle history as a risk anchor.
+            return Number(livePrice) > 0 ? Number(livePrice) : 0;
         }
 
         function previewQty() {
@@ -1830,53 +1835,55 @@
             updateTradePreview();
         }
 
-        function updateLinkedRiskPrices() {
+        function updateLinkedRiskPrices(priceOverride = null) {
             const e = tradeEls('mobile');
-            const price = previewPrice();
-            if (!e.tp || !e.sl || !price) return;
+            const price = Number(priceOverride) > 0 ? Number(priceOverride) : previewPrice();
+            if (!e.tp || !e.sl || !(price > 0)) {
+                updateDynamicRiskLabel();
+                return;
+            }
+
+            // Dynamic mode is state-driven. Every fresh market tick re-anchors
+            // TP/SL to that tick, preserving the selected risk percentage / RR.
+            // This is deliberately separate from DOM input events so a price tick
+            // can never be mistaken for manual editing.
             tradeRiskState.internalUpdate = true;
             try {
-                // RR dynamic mode owns both TP and SL. As the market price moves,
-                // the whole risk/reward structure follows it while preserving the
-                // selected ratio and risk distance.
                 if (tradeRiskState.rrRatio !== null) {
                     const riskPct = Math.max(0.01, Number(tradeRiskState.rrRiskPct) || 0.5);
-                    const rewardPct = riskPct * Number(tradeRiskState.rrRatio);
-                    const r = riskPct / 100;
-                    const rw = rewardPct / 100;
-                    if (tradeRiskState.side === 'Buy') {
-                        e.sl.value = normalizePrice(price * (1 - r));
-                        e.tp.value = normalizePrice(price * (1 + rw));
-                    } else {
-                        e.sl.value = normalizePrice(price * (1 + r));
-                        e.tp.value = normalizePrice(price * (1 - rw));
-                    }
+                    const ratio = Math.max(0.01, Number(tradeRiskState.rrRatio));
+                    const risk = price * (riskPct / 100);
+                    const reward = risk * ratio;
+                    e.sl.value = normalizePrice(tradeRiskState.side === 'Buy' ? price - risk : price + risk);
+                    e.tp.value = normalizePrice(tradeRiskState.side === 'Buy' ? price + reward : price - reward);
                 } else {
                     if (tradeRiskState.tpPct !== null) {
-                        const pct = Number(tradeRiskState.tpPct) / 100;
-                        const target = tradeRiskState.side === 'Buy' ? price * (1 + pct) : price * (1 - pct);
-                        e.tp.value = normalizePrice(target);
+                        const pct = Math.abs(Number(tradeRiskState.tpPct)) / 100;
+                        e.tp.value = normalizePrice(tradeRiskState.side === 'Buy' ? price * (1 + pct) : price * (1 - pct));
                     }
                     if (tradeRiskState.slPct !== null) {
-                        const pct = Number(tradeRiskState.slPct) / 100;
-                        const target = tradeRiskState.side === 'Buy' ? price * (1 - pct) : price * (1 + pct);
-                        e.sl.value = normalizePrice(target);
+                        const pct = Math.abs(Number(tradeRiskState.slPct)) / 100;
+                        e.sl.value = normalizePrice(tradeRiskState.side === 'Buy' ? price * (1 - pct) : price * (1 + pct));
                     }
                 }
             } finally {
                 tradeRiskState.internalUpdate = false;
             }
+            updateDynamicRiskLabel();
+        }
+
+        function updateDynamicRiskLabel() {
             const stateEl = document.getElementById('mobileRiskLinkState');
-            if (stateEl) {
-                const parts = [];
-                if (tradeRiskState.rrRatio !== null) parts.push(`RR 1:${Number(tradeRiskState.rrRatio).toFixed(2)} · риск ${Number(tradeRiskState.rrRiskPct).toFixed(2)}%`);
-                else {
-                    if (tradeRiskState.tpPct !== null) parts.push(`TP ${Number(tradeRiskState.tpPct)}%`);
-                    if (tradeRiskState.slPct !== null) parts.push(`SL ${Number(tradeRiskState.slPct)}%`);
-                }
-                stateEl.textContent = parts.length ? `Динамически: ${parts.join(' · ')}` : 'TP/SL вручную';
-                stateEl.className = 'text-[8px] ml-1 truncate ' + (parts.length ? 'text-bybit-yellow' : 'text-bybit-muted');
+            if (!stateEl) return;
+            const parts = [];
+            if (tradeRiskState.rrRatio !== null) {
+                parts.push(`RR 1:${Number(tradeRiskState.rrRatio).toFixed(2)} · риск ${Number(tradeRiskState.rrRiskPct || 0.5).toFixed(2)}%`);
+            } else {
+                if (tradeRiskState.tpPct !== null) parts.push(`TP ${Number(tradeRiskState.tpPct)}%`);
+                if (tradeRiskState.slPct !== null) parts.push(`SL ${Number(tradeRiskState.slPct)}%`);
             }
+            stateEl.textContent = parts.length ? `Динамически: ${parts.join(' · ')}` : 'TP/SL вручную';
+            stateEl.className = 'text-[8px] ml-1 truncate ' + (parts.length ? 'text-bybit-yellow' : 'text-bybit-muted');
         }
 
         function updateRiskRewardDisplay(price, tp, sl, qty, side) {
@@ -1928,16 +1935,30 @@
             sl = side === 'Buy' ? price - risk : price + risk;
             if (e.tp) e.tp.value = normalizePrice(tp);
             if (e.sl) e.sl.value = normalizePrice(sl);
+            updateLinkedRiskPrices(price);
+            lastDynamicRiskPrice = price;
             updateTradePreview();
             syncTradeInputs('mobile');
+        }
+
+        let lastDynamicRiskPrice = 0;
+        function ensureDynamicRiskFollow() {
+            const price = previewPrice();
+            if (!(price > 0)) return;
+            if (tradeRiskState.rrRatio !== null || tradeRiskState.tpPct !== null || tradeRiskState.slPct !== null) {
+                if (price !== lastDynamicRiskPrice) {
+                    lastDynamicRiskPrice = price;
+                    updateLinkedRiskPrices(price);
+                }
+            }
         }
 
         function updateTradePreview() {
             const e = tradeEls('mobile');
             if (!e.margin) return;
-            updateLinkedRiskPrices();
-            const qty = previewQty();
             const price = previewPrice();
+            updateLinkedRiskPrices(price);
+            const qty = previewQty();
             const notional = qty * price;
             const tp = Number(e.tp?.value || 0);
             const sl = Number(e.sl?.value || 0);
@@ -2334,6 +2355,7 @@
 
             updateLimitVisibility(); loadTradeConfig(); refreshPosition(); setPreviewSide('Buy'); updateTradePreview();
             connectPrivateWebSocket();
+            setInterval(ensureDynamicRiskFollow, 250);
             setInterval(fetchLongShortRatio, 15000);
             setInterval(fetchBybitTickers, 30000);
             setInterval(loadTradeConfig, 300000);
@@ -2823,6 +2845,8 @@
             if (!Number.isFinite(price) || price <= 0) return;
             livePrice = price;
             document.getElementById('lastPrice').innerText = formatPrice(price);
+            // Dynamic TP/SL/RR follows the accepted realtime price immediately.
+            updateLinkedRiskPrices(price);
             updateTradePreview();
             if (changePct !== null && Number.isFinite(changePct)) {
                 live24hChange = changePct;
