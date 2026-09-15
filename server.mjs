@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import {
   getConfig, getPrivateWsAuth, getWalletBalance, getPosition, getOpenOrders, getOrderHistory,
-  getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition
+  getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition, closePartialPosition
 } from './bybit.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -73,6 +73,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (method === 'POST' && url.pathname === '/api/trading-stop') {
       const body = await readJson(req); const data = await setTradingStop(body);
+      return json(res, 200, { ok: true, result: data.result });
+    }
+    if (method === 'POST' && url.pathname === '/api/close-partial') {
+      const body = await readJson(req); const data = await closePartialPosition(body.symbol, body.positionIdx ?? 0, body.percent ?? 100);
       return json(res, 200, { ok: true, result: data.result });
     }
     if (method === 'POST' && url.pathname === '/api/close-position') {

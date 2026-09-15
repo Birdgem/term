@@ -150,6 +150,22 @@ export async function setTradingStop({ symbol, takeProfit, stopLoss, trailingSto
   return request('POST', '/v5/position/trading-stop', params);
 }
 
+export async function closePartialPosition(symbol, positionIdx = 0, percent = 100) {
+  assertTradingEnabled();
+  const pct = Number(percent);
+  if (!Number.isFinite(pct) || pct <= 0 || pct > 100) throw new Error('percent must be between 0 and 100');
+  const data = await getPosition(symbol);
+  const list = data?.result?.list || [];
+  const pos = list.find(p => Number(p.positionIdx) === Number(positionIdx) && Number(p.size) > 0);
+  if (!pos) throw new Error(`No open position for ${String(symbol).toUpperCase()} positionIdx=${positionIdx}`);
+  const rawQty = Number(pos.size) * pct / 100;
+  const step = Number(pos.qtyStep || 0);
+  const qty = step > 0 ? Math.floor((rawQty + 1e-12) / step) * step : rawQty;
+  if (!(qty > 0)) throw new Error('Partial close is below the instrument qty step');
+  const side = pos.side === 'Buy' ? 'Sell' : 'Buy';
+  return placeOrder({ symbol, side, orderType: 'Market', qty: String(qty), positionIdx, reduceOnly: true, closeOnTrigger: true });
+}
+
 export async function closePosition(symbol, positionIdx = 0) {
   assertTradingEnabled();
   const data = await getPosition(symbol);
