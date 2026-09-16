@@ -173,6 +173,16 @@
 
         .header-action-btn { box-sizing:border-box; }
 
+        #terminalAuthModal { position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(0,0,0,.72); backdrop-filter:blur(8px); }
+        #terminalAuthModal.hidden { display:none !important; }
+        #terminalAuthCard { width:min(420px, 100%); background:#161b22; border:1px solid #30363d; border-radius:18px; box-shadow:0 20px 70px rgba(0,0,0,.55); padding:18px; }
+        #terminalAuthToken { width:100%; height:48px; border-radius:12px; border:1px solid #30363d; background:#0d1117; color:#f0f6fc; padding:0 13px; outline:none; font:600 13px ui-monospace,SFMono-Regular,Menlo,monospace; }
+        #terminalAuthToken:focus { border-color:#f7a600; }
+        #terminalAuthSave { width:100%; height:46px; border-radius:12px; background:#f7a600; color:#111; font-weight:900; margin-top:10px; }
+        #terminalAuthSave:active { transform:scale(.99); }
+        #terminalAuthStatus { min-height:18px; margin-top:8px; font:500 11px ui-monospace,SFMono-Regular,Menlo,monospace; color:#8b949e; line-height:1.35; }
+        #terminalLockBtn.auth-ok { border-color:rgba(14,203,129,.45) !important; color:#0ecb81 !important; background:rgba(14,203,129,.08) !important; }
+
         .dropdown-animate {
             transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -800,6 +810,28 @@
 </head>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
 
+    <div id="terminalAuthModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="terminalAuthTitle">
+        <div id="terminalAuthCard">
+            <div class="flex items-center gap-2 mb-2">
+                <div class="w-9 h-9 rounded-xl bg-bybit-yellow/10 border border-bybit-yellow/30 flex items-center justify-center text-bybit-yellow">
+                    <i data-lucide="lock-keyhole" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div id="terminalAuthTitle" class="text-sm font-black text-white">Защита терминала</div>
+                    <div class="text-[10px] text-bybit-muted font-mono">Render access token</div>
+                </div>
+            </div>
+            <div id="terminalAuthHint" class="text-[11px] text-bybit-muted leading-relaxed mb-3">
+                Введи токен, который задан в Render → Environment как TERMINAL_ACCESS_TOKEN. Он нужен только для доступа к приватным данным и торговым API.
+            </div>
+            <input id="terminalAuthToken" type="password" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="вставь длинный случайный токен">
+            <button id="terminalAuthSave" type="button">ПОДКЛЮЧИТЬ ТЕРМИНАЛ</button>
+            <div id="terminalAuthStatus"></div>
+            <button id="terminalAuthClear" type="button" class="mt-2 w-full h-9 rounded-xl border border-bybit-border bg-bybit-bg text-[10px] font-bold text-bybit-muted">Стереть сохранённый токен</button>
+        </div>
+    </div>
+
+
     <!-- Top Navigation Header -->
     <header id="topHeader" class="bg-bybit-card border-b border-bybit-border px-2 py-2 flex flex-col gap-1.5 shrink-0 z-30">
         <div class="flex items-center justify-between gap-1.5 w-full">
@@ -978,6 +1010,9 @@
             </div>
 
             <div id="mobileHeaderActions" class="md:hidden flex items-center gap-1.5 shrink-0">
+                <button id="terminalLockBtn" class="header-action-btn bg-bybit-bg border border-bybit-border text-bybit-muted" title="Защита терминала">
+                    <i data-lucide="lock-keyhole" class="w-4 h-4"></i>
+                </button>
                 <button id="mobileRefreshBtn" class="header-action-btn bg-bybit-bg border border-bybit-yellow/40 text-bybit-yellow" title="Обновить данные">
                     <i data-lucide="rotate-cw" class="w-4 h-4" id="mobileRefreshIcon"></i>
                 </button>
@@ -1455,6 +1490,92 @@
     </div>
 
     <script>
+        // Terminal access protection: the Render token is sent only as an Authorization header.
+        // It is never placed into URLs, query strings, or the HTML source.
+        const TERMINAL_AUTH_STORAGE = 'terminal.accessToken.v1';
+        let terminalAccessToken = '';
+        try { terminalAccessToken = localStorage.getItem(TERMINAL_AUTH_STORAGE) || ''; } catch {}
+        let terminalAuthWaiter = null;
+
+        function terminalApiUrl(input) {
+            try { return new URL(typeof input === 'string' ? input : input?.url || '', location.href); } catch { return null; }
+        }
+
+        const nativeTerminalFetch = window.fetch.bind(window);
+        window.fetch = async function(input, init = {}) {
+            const u = terminalApiUrl(input);
+            const sameOriginApi = u && u.origin === location.origin && u.pathname.startsWith('/api/');
+            let nextInit = init;
+            if (sameOriginApi && terminalAccessToken) {
+                const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined));
+                headers.set('Authorization', `Bearer ${terminalAccessToken}`);
+                nextInit = { ...init, headers };
+            }
+            const response = await nativeTerminalFetch(input, nextInit);
+            if (sameOriginApi && (response.status === 401 || response.status === 429)) {
+                if (response.status === 401) {
+                    terminalAccessToken = '';
+                    try { localStorage.removeItem(TERMINAL_AUTH_STORAGE); } catch {}
+                    showTerminalAuth('Токен не принят Render. Проверь его и попробуй ещё раз.');
+                } else {
+                    showTerminalAuth('Слишком много попыток авторизации. Подожди немного и повтори.');
+                }
+            } else if (sameOriginApi && response.status === 503) {
+                showTerminalAuth('На Render ещё не задан TERMINAL_ACCESS_TOKEN. Добавь его в Environment Variables и перезапусти сервис.');
+            }
+            return response;
+        };
+
+        function showTerminalAuth(message = '') {
+            const modal = document.getElementById('terminalAuthModal');
+            const input = document.getElementById('terminalAuthToken');
+            const status = document.getElementById('terminalAuthStatus');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            if (status) status.textContent = message;
+            if (input) { input.value = terminalAccessToken || ''; setTimeout(() => input.focus(), 40); }
+        }
+
+        function updateTerminalAuthUi() {
+            const btn = document.getElementById('terminalLockBtn');
+            if (!btn) return;
+            btn.classList.toggle('auth-ok', !!terminalAccessToken);
+            btn.title = terminalAccessToken ? 'Токен сохранён · нажми для смены' : 'Настроить доступ к терминалу';
+        }
+
+        function saveTerminalAuthToken(value) {
+            const token = String(value || '').trim();
+            if (token.length < 16) throw new Error('Токен слишком короткий. Используй длинную случайную строку.');
+            terminalAccessToken = token;
+            try { localStorage.setItem(TERMINAL_AUTH_STORAGE, token); } catch {}
+            updateTerminalAuthUi();
+        }
+
+        async function ensureTerminalAuth() {
+            updateTerminalAuthUi();
+            if (!terminalAccessToken) {
+                showTerminalAuth();
+                await new Promise(resolve => { terminalAuthWaiter = resolve; });
+            }
+            try {
+                const r = await fetch('/api/config', { cache:'no-store' });
+                if (r.ok) return true;
+                if (r.status === 401) {
+                    terminalAccessToken = '';
+                    try { localStorage.removeItem(TERMINAL_AUTH_STORAGE); } catch {}
+                    showTerminalAuth('Токен не принят Render.');
+                    await new Promise(resolve => { terminalAuthWaiter = resolve; });
+                    return ensureTerminalAuth();
+                }
+                if (r.status === 503) {
+                    showTerminalAuth('Render не настроен: добавь TERMINAL_ACCESS_TOKEN в Environment Variables.');
+                }
+            } catch (e) {
+                showTerminalAuth('Не удалось проверить доступ к терминалу: ' + e.message);
+            }
+            return !!terminalAccessToken;
+        }
+
         let currentSymbol = 'BTCUSDT';
         let currentInterval = '240';
         let allTickers = [];
@@ -1542,8 +1663,37 @@
             showMACD: true
         };
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             lucide.createIcons();
+            document.getElementById('terminalLockBtn')?.addEventListener('click', () => showTerminalAuth());
+            document.getElementById('terminalAuthClear')?.addEventListener('click', () => {
+                terminalAccessToken = '';
+                try { localStorage.removeItem(TERMINAL_AUTH_STORAGE); } catch {}
+                updateTerminalAuthUi();
+                const input = document.getElementById('terminalAuthToken'); if (input) input.value = '';
+                const status = document.getElementById('terminalAuthStatus'); if (status) status.textContent = 'Сохранённый токен удалён.';
+                setTimeout(() => document.getElementById('terminalAuthToken')?.focus(), 40);
+            });
+            document.getElementById('terminalAuthSave')?.addEventListener('click', async () => {
+                const input = document.getElementById('terminalAuthToken');
+                const status = document.getElementById('terminalAuthStatus');
+                try {
+                    saveTerminalAuthToken(input?.value || '');
+                    if (status) status.textContent = 'Проверяю токен…';
+                    const r = await fetch('/api/config', { cache:'no-store' });
+                    if (!r.ok) throw new Error(r.status === 401 ? 'Токен не принят Render.' : (r.status === 503 ? 'На Render не задан TERMINAL_ACCESS_TOKEN.' : `HTTP ${r.status}`));
+                    document.getElementById('terminalAuthModal')?.classList.add('hidden');
+                    if (status) status.textContent = '';
+                    if (terminalAuthWaiter) { const resolve = terminalAuthWaiter; terminalAuthWaiter = null; resolve(); }
+                } catch (e) {
+                    terminalAccessToken = '';
+                    try { localStorage.removeItem(TERMINAL_AUTH_STORAGE); } catch {}
+                    updateTerminalAuthUi();
+                    if (status) status.textContent = e.message;
+                }
+            });
+            document.getElementById('terminalAuthToken')?.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('terminalAuthSave')?.click(); });
+            await ensureTerminalAuth();
             initChart();
             bindEvents();
             bindTradingUI();
@@ -2294,6 +2444,7 @@
 
             document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
             document.getElementById('mobileRefreshBtn')?.addEventListener('click', () => doManualRefresh('mobileRefreshIcon'));
+
 
             const mobileDrawer = document.getElementById('mobileAnalyticsDrawer');
             const openAnalytics = () => mobileDrawer.classList.remove('hidden');

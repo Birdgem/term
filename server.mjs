@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
+import crypto from 'node:crypto';
 import {
   getConfig, getPrivateWsAuth, getWalletBalance, getPublicTicker, getPosition, getOpenOrders, getOrderHistory,
   getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition, closePartialPosition, applyMultiTakeProfits, moveStopToBreakeven
@@ -12,6 +13,58 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 10000);
 const HOST = '0.0.0.0';
+const TERMINAL_ACCESS_TOKEN = String(process.env.TERMINAL_ACCESS_TOKEN || '').trim();
+const PROTECTED_PATHS = new Set([
+  '/api/config', '/api/ws-auth', '/api/account', '/account', '/api/position', '/position',
+  '/api/orders', '/orders', '/api/order-history', '/order-history', '/api/leverage', '/api/order',
+  '/api/cancel-order', '/api/cancel-all', '/api/trading-stop', '/api/multi-tp', '/api/multi-tp-be',
+  '/api/close-partial', '/api/close-position'
+]);
+const authFailures = new Map();
+
+function clientIp(req) {
+  return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+}
+
+function safeTokenEqual(a, b) {
+  const aa = Buffer.from(String(a || ''));
+  const bb = Buffer.from(String(b || ''));
+  return aa.length === bb.length && aa.length > 0 && crypto.timingSafeEqual(aa, bb);
+}
+
+function isAuthorized(req) {
+  if (!TERMINAL_ACCESS_TOKEN) return false;
+  const header = String(req.headers.authorization || '');
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return safeTokenEqual(match?.[1] || '', TERMINAL_ACCESS_TOKEN);
+}
+
+function authGuard(req, res, pathname) {
+  if (!PROTECTED_PATHS.has(pathname)) return true;
+  if (!TERMINAL_ACCESS_TOKEN) {
+    json(res, 503, { ok: false, error: 'Terminal access token is not configured on Render.' });
+    return false;
+  }
+  if (isAuthorized(req)) {
+    authFailures.delete(clientIp(req));
+    return true;
+  }
+  const ip = clientIp(req);
+  const now = Date.now();
+  const prev = authFailures.get(ip) || { count: 0, resetAt: now + 60000 };
+  if (now > prev.resetAt) { prev.count = 0; prev.resetAt = now + 60000; }
+  prev.count += 1;
+  authFailures.set(ip, prev);
+  const retryAfter = Math.max(1, Math.ceil((prev.resetAt - now) / 1000));
+  if (prev.count > 12) {
+    res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Retry-After': String(retryAfter) });
+    res.end(JSON.stringify({ ok: false, error: 'Too many authentication attempts. Try again shortly.' }));
+    return false;
+  }
+  res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'WWW-Authenticate': 'Bearer' });
+  res.end(JSON.stringify({ ok: false, error: 'Unauthorized' }));
+  return false;
+}
 
 function json(res, status, data) {
   const body = JSON.stringify(data);
@@ -31,7 +84,8 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const method = req.method || 'GET';
 
-    if (url.pathname === '/health') return json(res, 200, { ok: true, service: 'bybit-scalping-terminal', ...getConfig() });
+    if (url.pathname === '/health') return json(res, 200, { ok: true, service: 'bybit-scalping-terminal', authConfigured: Boolean(TERMINAL_ACCESS_TOKEN), ...getConfig() });
+    if (!authGuard(req, res, url.pathname)) return;
     if (url.pathname === '/api/config') return json(res, 200, { ok: true, ...getConfig() });
     if (url.pathname === '/api/ws-auth') return json(res, 200, { ok: true, ...getPrivateWsAuth() });
 

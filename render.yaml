@@ -15,3 +15,5 @@ services:
         sync: false
       - key: BYBIT_API_SECRET
         sync: false
+      - key: TERMINAL_ACCESS_TOKEN
+        sync: false
