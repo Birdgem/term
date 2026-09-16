@@ -529,7 +529,40 @@
             }
         }
 
-        .realtime-flash { animation: realtimeFlash .18s ease-out; }
+        /* Stage 5.18 — dedicated one-handed Scalp Mode */
+        .mobile-scalp-actions { display:none; }
+        @media (max-width:767px) {
+            #mobileScalpModeBtn.sc-mode-active { color:#f7a600 !important; border-color:rgba(247,166,0,.65) !important; background:rgba(247,166,0,.12) !important; }
+            body.mobile-scalp-mode #volumeChartContainer,
+            body.mobile-scalp-mode #rsiChartContainer,
+            body.mobile-scalp-mode #macdChartContainer { display:none !important; }
+            body.mobile-scalp-mode #priceChartContainer { height:clamp(470px, 69svh, 720px) !important; min-height:470px !important; }
+            body.mobile-scalp-mode #mobileChartTools { gap:3px !important; }
+            body.mobile-scalp-mode #mobileChartTools .mobile-tf-btn { min-width:36px !important; }
+            body.mobile-scalp-mode #mobileChartTools .mobile-chart-action { width:35px !important; min-width:35px !important; }
+            body.mobile-scalp-mode #mobileChartTools .scalp-mode-btn { width:42px !important; min-width:42px !important; }
+            #mobileScalpActions {
+                display:none; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 42px; gap:7px;
+                padding:6px 7px 7px;
+            }
+            body.mobile-scalp-mode #mobileScalpActions { display:grid; }
+            body.mobile-scalp-mode #mobileTradeDock .mobile-trade-body { display:none !important; }
+            body.mobile-scalp-mode #mobileTradeDock { max-height:190px !important; }
+            body.mobile-scalp-mode #mobileTradeDock .mobile-trade-statusline { min-height:34px; }
+            .scalp-action { height:58px; min-height:58px; border-radius:12px; border:1px solid #30363d; color:#fff; font:900 17px ui-monospace,monospace; letter-spacing:.02em; touch-action:manipulation; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
+            .scalp-action:active { transform:scale(.985); }
+            .scalp-long { background:linear-gradient(180deg,#249e62,#197443); border-color:rgba(14,203,129,.55); }
+            .scalp-short { background:linear-gradient(180deg,#dc4a58,#9e2d39); border-color:rgba(246,70,93,.55); }
+            .scalp-expand { height:58px; border-radius:12px; border:1px solid #30363d; background:#0d1117; color:#aab3bd; font-size:20px; touch-action:manipulation; }
+            body.mobile-scalp-mode #mobileTradeDock .mobile-trade-topline { min-height:28px; }
+            body.mobile-scalp-mode #mobileTradeDock .mobile-strength-strip { min-height:32px; }
+            body.mobile-scalp-mode #mobileTradeDock.collapsed { max-height:64px !important; }
+            body.mobile-scalp-mode #mobileTradeDock.collapsed #mobileScalpActions { display:none; }
+            body.mobile-scalp-mode #mobileTradeDock.collapsed .mobile-strength-strip { display:none; }
+            body.mobile-scalp-mode #mobileOhlcMini { display:none !important; }
+        }
+
+        .realtime-flash { animation:realtimeFlash .18s ease-out; }
         @keyframes realtimeFlash { 0% { opacity:.65; } 100% { opacity:1; } }
         @media (max-width:767px) {
             #lastPrice { font-size: 12px; }
@@ -1045,6 +1078,7 @@
                         <button id="mobileVolumeBtn" class="mobile-chart-action chart-toggle-active" title="Volume">V</button>
                         <button id="mobileOrderbookBtn" class="mobile-chart-action chart-toggle-active" title="Стакан">S</button>
                         <button id="mobileAutoChartBtn" class="mobile-chart-action" title="Автомасштаб">AUTO</button>
+                        <button id="mobileScalpModeBtn" class="mobile-chart-action scalp-mode-btn" title="Scalp Mode">SC</button>
                         <button id="mobileRsiBtn" class="mobile-chart-action chart-toggle-active" title="RSI">R</button>
                         <button id="mobileMacdBtn" class="mobile-chart-action chart-toggle-active" title="MACD">M</button>
                     </div>
@@ -1164,6 +1198,11 @@
                 <span class="text-bybit-muted">B/S</span>
                 <div class="mobile-strength-bar"><div id="mobileTradeBuyBar" class="buy"></div><div id="mobileTradeSellBar" class="sell"></div></div>
                 <span id="mobileTradeStrengthValue" class="mobile-strength-value text-bybit-green">3.8x Покупатели</span>
+            </div>
+            <div id="mobileScalpActions" class="mobile-scalp-actions hidden">
+                <button id="mobileScalpLongBtn" class="scalp-action scalp-long">LONG</button>
+                <button id="mobileScalpShortBtn" class="scalp-action scalp-short">SHORT</button>
+                <button id="mobileScalpExpandBtn" class="scalp-expand" title="Открыть настройки сделки">⚙</button>
             </div>
             <div class="mobile-trade-body space-y-1.5">
                 <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -2196,6 +2235,26 @@
                 document.getElementById('mobileOrderbookBtn')?.classList.toggle('chart-toggle-active', !!el?.checked);
             });
             document.getElementById('mobileAutoChartBtn')?.addEventListener('click', () => resetChartView());
+            function setMobileScalpMode(enabled) {
+                document.body.classList.toggle('mobile-scalp-mode', !!enabled);
+                const btn = document.getElementById('mobileScalpModeBtn');
+                if (btn) btn.classList.toggle('sc-mode-active', !!enabled);
+                localStorage.setItem('mobileScalpMode', enabled ? '1' : '0');
+                if (enabled) {
+                    document.getElementById('mobileTradeDock')?.classList.remove('collapsed');
+                    try { resetChartView(); } catch (_) {}
+                }
+            }
+            const savedScalpMode = localStorage.getItem('mobileScalpMode') === '1';
+            document.getElementById('mobileScalpModeBtn')?.addEventListener('click', () => setMobileScalpMode(!document.body.classList.contains('mobile-scalp-mode')));
+            document.getElementById('mobileScalpLongBtn')?.addEventListener('click', () => document.getElementById('mobileLongBtn')?.click());
+            document.getElementById('mobileScalpShortBtn')?.addEventListener('click', () => document.getElementById('mobileShortBtn')?.click());
+            document.getElementById('mobileScalpExpandBtn')?.addEventListener('click', () => {
+                setMobileScalpMode(false);
+                document.getElementById('mobileTradeDock')?.classList.remove('collapsed');
+                document.querySelector('#mobileTradeDock .mobile-trade-body')?.scrollIntoView({behavior:'smooth', block:'nearest'});
+            });
+            if (savedScalpMode) setMobileScalpMode(true);
             document.getElementById('mobileRsiBtn')?.addEventListener('click', () => {
                 const el = document.getElementById('toggleRSI');
                 if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change', {bubbles:true})); }
