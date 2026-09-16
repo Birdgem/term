@@ -418,6 +418,15 @@
         }
 
 
+        /* Stage 5.23 microfix: translucent mobile trade dock. */
+        @media (max-width:767px) {
+            #mobileTradeDock {
+                background: rgba(13,17,23,.88) !important;
+                backdrop-filter: blur(16px) saturate(120%);
+                -webkit-backdrop-filter: blur(16px) saturate(120%);
+            }
+        }
+
         /* Stage 5.13 mobile scalper layout: compact dock, no button collisions. */
         @media (max-width:767px) {
             #mobileTradeDock {
@@ -2627,6 +2636,28 @@
             const hadPrevious = !!(previous && Number(previous.size) > 0);
             const has = !!(pos && Number(pos.size) > 0);
             tradeState.position = pos;
+
+            // Once a real position appears, stop treating the entry form as a live
+            // TP/SL calculator. Actual TP/SL attached to the position remain on the
+            // chart; fresh preview levels are cleared so the chart stays clean.
+            if (has && !hadPrevious) {
+                tradeRiskState.mode = 'manual';
+                tradeRiskState.tpPct = null;
+                tradeRiskState.slPct = null;
+                tradeRiskState.rrRatio = null;
+                tradeRiskState.entryPrice = 0;
+                tradeRiskState.tpPrice = 0;
+                tradeRiskState.slPrice = 0;
+                multiTpState.enabled = false;
+                multiTpState.levels = [0, 0, 0];
+                const mtp = document.getElementById('mobileMultiTpToggle');
+                if (mtp) mtp.classList.remove('text-bybit-green','bg-bybit-green/10');
+                ['mobileTP1','mobileTP2','mobileTP3'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+                syncTradeChartLevels();
+                // New position: jump straight to the position manager.
+                requestAnimationFrame(() => openMobileTool('position'));
+            }
+
             const empty = document.getElementById('mobilePositionEmpty');
             if (empty) empty.classList.toggle('hidden', has);
             if (has) {
@@ -2809,6 +2840,8 @@
         }
 
         function updateLinkedRiskPrices() {
+            // No dynamic TP/SL calculations while a live position is open.
+            if (tradeState.position && Number(tradeState.position.size) > 0) return;
             const e = tradeEls('mobile');
             const price = previewPrice();
             if (!e.tp || !e.sl || !(price > 0) || tradeRiskState.mode === 'manual') return;
@@ -2847,6 +2880,7 @@
         function renderDynamicRiskNow() {
             // Dedicated reactive path for realtime ticks. Do not depend on any chart redraw
             // or heavy analytics cycle.
+            if (tradeState.position && Number(tradeState.position.size) > 0) return;
             if (tradeRiskState.mode === 'manual') return;
             updateLinkedRiskPrices();
             updateRiskRewardDisplay(
@@ -3070,6 +3104,12 @@
         function updateTradePreview() {
             const e = tradeEls('mobile');
             if (!e.margin) return;
+            // While a position is open, the position manager owns risk. Do not keep
+            // recalculating the entry form's TP/SL preview in the background.
+            if (tradeState.position && Number(tradeState.position.size) > 0) {
+                updatePositionLive(livePrice || Number(tradeState.position.markPrice || 0));
+                return;
+            }
             if (tradeRiskState.mode !== 'manual') updateLinkedRiskPrices();
             const qty = previewQty();
             const price = previewPrice();
