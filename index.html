@@ -336,6 +336,10 @@
                 #priceInfoOverlay { right: 2px; max-width: calc(100vw - 12px); flex-wrap: nowrap; overflow: hidden; }
                 #priceInfoOverlay > div:first-child { flex-shrink: 0; }
                 #priceInfoOverlay .scalp-score-mini { flex-shrink: 0; }
+                #priceInfoOverlay #resetChartViewBtnTop { flex-shrink: 0; }
+                #priceInfo24h { flex-shrink: 1; }
+                #priceInfoOverlay > .flex.items-center.space-x-1.font-mono:nth-of-type(2) { flex-shrink: 0; }
+                #mobileChartToolbar { display:none !important; }
                 #mobileChartToolbar #mobileScalpScore { display:none !important; }
             }
 
@@ -568,15 +572,16 @@
                     <span class="text-bybit-muted">Цена: </span>
                     <span id="lastPrice" class="font-bold text-white">0.00</span>
                 </div>
-                <div class="flex items-center space-x-1 font-mono">
+                <div id="priceInfo24h" class="flex items-center space-x-1 font-mono shrink-0">
                     <span class="text-bybit-muted">24h: </span>
                     <span id="priceChange" class="font-bold">0.00%</span>
                 </div>
-                <div id="priceInfoScalpScore" class="scalp-score-mini flex items-center gap-1 px-1.5 py-0.5 rounded border border-bybit-border bg-bybit-bg/90 font-mono" title="Scalp Score">
+                <div id="priceInfoScalpScore" class="scalp-score-mini flex items-center gap-1 px-1.5 py-0.5 rounded border border-bybit-border bg-bybit-bg/90 font-mono shrink-0" title="Scalp Score">
                     <span class="text-bybit-muted text-[8px]">SCORE</span>
                     <b id="priceInfoScalpScoreValue" class="text-bybit-yellow text-[10px] leading-none">--</b>
                     <span id="priceInfoScalpScoreBias" class="text-bybit-yellow text-[8px] font-black">WAIT</span>
                 </div>
+                <button id="resetChartViewBtnTop" class="chart-quick-btn shrink-0" title="Автомасштаб и последние свечи">AUTO</button>
                 
                 <div class="hidden lg:flex items-center space-x-2 font-mono text-[11px]" id="ohlcContainer">
                     <span class="text-bybit-border">|</span>
@@ -591,7 +596,7 @@
                 <span>O <b id="mobileO">0</b></span><span>H <b id="mobileH">0</b></span><span>L <b id="mobileL">0</b></span><span>C <b id="mobileC">0</b></span><span>V <b id="mobileV">0</b></span>
             </div>
 
-            <div id="mobileChartToolbar" class="md:hidden flex items-center justify-between px-2 py-1.5 bg-bybit-card border-b border-bybit-border text-[10px] font-mono gap-2">
+            <div id="mobileChartToolbar" class="hidden md:hidden">
                 <div class="flex items-center gap-1.5 shrink-0">
                     <span class="text-bybit-muted">CHART</span>
                     <span class="text-bybit-green">REALTIME</span>
@@ -1641,14 +1646,17 @@
                 updateIndicatorVisibility();
             });
 
-            document.getElementById('resetChartViewBtn')?.addEventListener('click', () => {
+            const resetChartView = () => {
                 try {
                     const visibleBars = window.innerWidth < 768 ? 52 : 110;
                     const from = Math.max(0, rawCandles.length - visibleBars);
                     chart.timeScale().setVisibleLogicalRange({ from, to: rawCandles.length + 2 });
                     chart.priceScale('right').applyOptions({ autoScale: true });
+                    syncAllChartRanges();
                 } catch (e) {}
-            });
+            };
+            document.getElementById('resetChartViewBtn')?.addEventListener('click', resetChartView);
+            document.getElementById('resetChartViewBtnTop')?.addEventListener('click', resetChartView);
 
             const doManualRefresh = async (iconId) => {
                 const icon = document.getElementById(iconId);
