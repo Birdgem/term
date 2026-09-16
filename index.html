@@ -391,6 +391,46 @@
             #mobilePositionManager { display:block; }
         }
 
+        /* Stage 5.24 mobile transparency + compact position view */
+        @media (max-width:767px) {
+            #mobileToolDrawer {
+                max-height:39svh !important;
+                background:rgba(13,17,23,.70) !important;
+                backdrop-filter:blur(10px) saturate(115%);
+                -webkit-backdrop-filter:blur(10px) saturate(115%);
+                box-shadow:0 -10px 28px rgba(0,0,0,.28);
+            }
+            #mobileToolDrawer .drawer-scroll { max-height:calc(39svh - 50px) !important; }
+            #mobileToolDrawer .mobile-tool-tabs { background:rgba(22,27,34,.58); }
+            #mobilePositionView { background:transparent; }
+            #mobilePositionView .position-manager {
+                background:rgba(13,17,23,.66);
+                border-color:rgba(48,54,61,.72);
+                backdrop-filter:blur(7px);
+                -webkit-backdrop-filter:blur(7px);
+            }
+            #mobilePositionView .position-manager-grid { margin-top:3px !important; gap:4px; }
+            #mobilePositionView .position-manager-stat .k { font-size:7px; }
+            #mobilePositionView .position-manager-stat .v { font-size:9px; }
+            #mobilePositionView .position-manager-actions { margin-top:3px !important; }
+            #mobilePositionView .position-action { min-height:27px; padding:3px 7px; background:rgba(22,27,34,.58); }
+            #mobilePositionView .position-manager-fields .trade-input { min-height:32px; background:rgba(13,17,23,.58); }
+            #mobilePositionView .position-history-section { margin-top:5px !important; padding-top:5px !important; }
+            #mobilePositionHistoryToggle { min-height:27px; }
+            #mobilePositionHistoryList { margin-top:5px; }
+            #mobileTradeDock {
+                background:rgba(13,17,23,.70) !important;
+                backdrop-filter:blur(12px) saturate(115%);
+                -webkit-backdrop-filter:blur(12px) saturate(115%);
+                box-shadow:0 -10px 30px rgba(0,0,0,.25) !important;
+            }
+            #mobileTradeDock .mobile-trade-header { background:rgba(13,17,23,.42); }
+            #mobileTradeDock .mobile-trade-body { background:rgba(13,17,23,.30); }
+            #mobileTradeDock .trade-input,
+            #mobileTradeDock .trade-quick,
+            #mobileTradeDock .trade-preview { background:rgba(13,17,23,.54); }
+        }
+
         /* Stage 5.7 mobile workspace: Trade / Position / Orders are separate views. */
         .mobile-tool-drawer { position:fixed; left:0; right:0; bottom:0; z-index:55; background:rgba(13,17,23,.98); backdrop-filter:blur(14px); border-top:1px solid #30363d; box-shadow:0 -16px 40px rgba(0,0,0,.55); padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
         .mobile-tool-drawer.hidden { display:none !important; }
@@ -1415,12 +1455,12 @@
                 </div>
             </div>
             <div id="mobilePositionEmpty" class="mobile-order-empty hidden">Открытой позиции нет</div>
-            <div class="border-t border-bybit-border pt-2 mt-2">
+            <div id="mobilePositionHistorySection" class="border-t border-bybit-border pt-2 mt-2 position-history-section">
                 <div class="flex items-center justify-between gap-2 mb-1">
-                    <div class="text-[9px] font-black text-bybit-muted">ИСТОРИЯ ПОЗИЦИЙ</div>
-                    <button id="mobileRefreshPositionHistory" class="position-action">↻</button>
+                    <button id="mobilePositionHistoryToggle" class="position-action" style="flex:1;text-align:left">ИСТОРИЯ ПОЗИЦИЙ <span id="mobilePositionHistoryChevron">▸</span></button>
+                    <button id="mobileRefreshPositionHistory" class="position-action" aria-label="Обновить историю">↻</button>
                 </div>
-                <div id="mobilePositionHistoryList" class="position-history-list"><div class="mobile-order-empty">Загрузка истории...</div></div>
+                <div id="mobilePositionHistoryList" class="position-history-list hidden"><div class="mobile-order-empty">Загрузка истории...</div></div>
             </div>
         </div>
         <div id="mobileOrdersView" class="drawer-scroll p-2.5 space-y-1.5 hidden">
@@ -2752,12 +2792,22 @@
             }, 450);
         }
 
+        function getClosedPositionSide(row, previous) {
+            // Bybit closed-PnL `side` is the side of the closing execution.
+            // Closing a LONG is a Sell; closing a SHORT is a Buy.
+            if (previous?.side === 'Buy' || previous?.side === 'Sell') return previous.side;
+            if (row?.side === 'Buy') return 'Sell';
+            if (row?.side === 'Sell') return 'Buy';
+            return '';
+        }
+
         function showClosedPositionPopup(row, previous) {
             const modal=document.getElementById('positionClosedModal'); if(!modal) return;
             const pnl=Number(row?.closedPnl || 0);
             const fees=Number(row?.openFee || 0)+Number(row?.closeFee || 0);
+            const positionSide = getClosedPositionSide(row, previous);
             const set=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
-            set('closedModalTitle', `${currentSymbol} ${row?.side==='Buy'?'LONG':'SHORT'}`);
+            set('closedModalTitle', `${currentSymbol} ${positionSide==='Buy'?'LONG':positionSide==='Sell'?'SHORT':'—'}`);
             set('closedModalPnl', `${pnl>=0?'+':''}${pnl.toFixed(4)} USDT`);
             set('closedModalQty', row?.closedSize || row?.qty || previous?.size || '—');
             set('closedModalEntry', Number(row?.avgEntryPrice || previous?.avgPrice || 0) ? formatPrice(row.avgEntryPrice || previous.avgPrice) : '—');
@@ -2776,9 +2826,12 @@
                 if(!rows.length){list.innerHTML='<div class="mobile-order-empty">История пуста</div>';return;}
                 list.innerHTML=rows.slice(0,10).map(x=>{
                     const pnl=Number(x.closedPnl||0), win=pnl>=0;
-                    const side=x.side==='Buy'?'LONG':'SHORT';
+                    // Closed-PnL `side` is the closing order side, so invert it
+                    // to show the actual direction of the position that was closed.
+                    const positionSide=x.side==='Sell'?'LONG':x.side==='Buy'?'SHORT':'—';
+                    const sideClass=positionSide==='LONG'?'text-bybit-green':positionSide==='SHORT'?'text-bybit-red':'text-bybit-muted';
                     const t=x.updatedTime?new Date(Number(x.updatedTime)).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-                    return `<div class="position-history-row ${win?'win':'loss'}"><div><span class="k">ПОЗИЦИЯ</span><span class="v ${x.side==='Buy'?'text-bybit-green':'text-bybit-red'}">${side} ${x.closedSize||x.qty||''}</span></div><div><span class="k">ENTRY → EXIT</span><span class="v">${Number(x.avgEntryPrice||0)?formatPrice(x.avgEntryPrice):'—'} → ${Number(x.avgExitPrice||0)?formatPrice(x.avgExitPrice):'—'}</span></div><div><span class="k">PNL · ВРЕМЯ</span><span class="v ${win?'text-bybit-green':'text-bybit-red'}">${pnl>=0?'+':''}${pnl.toFixed(3)} · ${t}</span></div></div>`;
+                    return `<div class="position-history-row ${win?'win':'loss'}"><div><span class="k">ПОЗИЦИЯ</span><span class="v ${sideClass}">${positionSide} ${x.closedSize||x.qty||''}</span></div><div><span class="k">ENTRY → EXIT</span><span class="v">${Number(x.avgEntryPrice||0)?formatPrice(x.avgEntryPrice):'—'} → ${Number(x.avgExitPrice||0)?formatPrice(x.avgExitPrice):'—'}</span></div><div><span class="k">PNL · ВРЕМЯ</span><span class="v ${win?'text-bybit-green':'text-bybit-red'}">${pnl>=0?'+':''}${pnl.toFixed(3)} · ${t}</span></div></div>`;
                 }).join('');
             } catch(e){ list.innerHTML=`<div class="mobile-order-empty">Ошибка: ${e.message}</div>`; }
         }
@@ -3497,6 +3550,14 @@
             document.getElementById('positionClosedModal')?.addEventListener('click', e => { if (e.target.id === 'positionClosedModal') e.currentTarget.classList.add('hidden'); });
             document.getElementById('closedModalHistoryBtn')?.addEventListener('click', () => { document.getElementById('positionClosedModal')?.classList.add('hidden'); openMobileTool('position'); });
             document.getElementById('mobileRefreshPositionHistory')?.addEventListener('click', refreshPositionHistory);
+            document.getElementById('mobilePositionHistoryToggle')?.addEventListener('click', () => {
+                const list = document.getElementById('mobilePositionHistoryList');
+                const chevron = document.getElementById('mobilePositionHistoryChevron');
+                if (!list) return;
+                const open = list.classList.toggle('hidden') === false;
+                if (chevron) chevron.textContent = open ? '▾' : '▸';
+                if (open) refreshPositionHistory();
+            });
             const d=tradeEls('desktop'), m=tradeEls('mobile');
             [d,m].forEach((e,i)=>{
                 if(!e.margin) return;
