@@ -981,7 +981,40 @@
             #mobileTradeDock .mobile-trade-grid { gap: 4px !important; }
             #mobileTradeDock .trade-status { font-size: 8px !important; min-height: 12px !important; line-height: 12px !important; }
 
-            /* Stage 5.25.1 — keep the actual entry buttons visible while the compact body scrolls. */
+            /* Stage 5.25.2 — entry buttons live outside the scroll area and stay visible. */
+        @media (max-width:767px) {
+            #mobileTradeDock {
+                max-height: 46svh !important;
+            }
+            #mobileTradeDock .mobile-trade-body {
+                max-height: calc(46svh - 122px) !important;
+                overflow-y: auto !important;
+                padding-bottom: 2px !important;
+            }
+            #mobileTradeDock .mobile-entry-footer {
+                position:relative !important;
+                z-index:20 !important;
+                display:grid !important;
+                grid-template-columns:1fr 1fr !important;
+                gap:5px !important;
+                margin:3px 2px 0 !important;
+                padding:4px 0 calc(4px + env(safe-area-inset-bottom)) !important;
+                background:linear-gradient(to bottom, rgba(13,17,23,.35), rgba(13,17,23,.90)) !important;
+                backdrop-filter:blur(10px);
+                -webkit-backdrop-filter:blur(10px);
+            }
+            #mobileTradeDock .mobile-entry-footer .trade-btn {
+                display:flex !important;
+                visibility:visible !important;
+                opacity:1 !important;
+                height:38px !important;
+                min-height:38px !important;
+                width:100% !important;
+                font-size:11px !important;
+            }
+        }
+
+        /* Stage 5.25.1 — keep the actual entry buttons visible while the compact body scrolls. */
             #mobileTradeDock .mobile-trade-grid {
                 position: sticky;
                 bottom: 0;
@@ -1497,11 +1530,11 @@
                         <button id="mobileApplyMultiTp" class="trade-quick px-2">APPLY</button>
                     </div>
                 </div>
-                <div class="mobile-trade-grid">
-                    <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
-                    <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
-                </div>
                 <div id="mobileTradeStatus" class="trade-status text-[9px] font-mono text-bybit-muted truncate"></div>
+            </div>
+            <div class="mobile-trade-grid mobile-entry-footer">
+                <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
+                <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
             </div>
         </div>
     </div>
