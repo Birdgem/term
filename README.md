@@ -1,15 +1,14 @@
-# Bybit Scalping Terminal — Stage 5.12 Multi-TP
+# Bybit Scalping Terminal — Stage 5.13 Mobile Scalper
 
-Mobile-first Bybit Global Unified terminal.
+Render Web Service for Bybit Global Unified account.
 
-## Stage 5.12
-- Multi-TP: TP1/TP2/TP3 with 40/35/25% position distribution.
-- AUTO 3TP selects up to three S/R levels and places targets inside the levels for scalping.
-- Full-position SL remains separate and automatically follows the remaining position size.
-- BE AUTO moves the stop to breakeven after TP1 is filled.
-- Conditional reduce-only TP orders use the instrument tickSize/qtyStep.
-- Existing realtime price, dynamic RR/TP/SL, AUTO S/R, SCORE, POS and ORD flows are preserved.
-- Trading remains disabled unless `TRADING_ENABLED=true` is explicitly enabled on Render.
+Stage 5.13 focuses on mobile trading ergonomics without changing the working realtime/trading architecture:
+- compact two-line mobile trade header
+- POS / ORD / CLOSE controls no longer compete with the symbol/status area
+- bounded mobile trade dock with internal scrolling
+- quick-risk / AUTO S/R / Multi-TP controls use a dedicated horizontal scroll row
+- Multi-TP inputs remain touch-friendly
+- chart gets more usable space while the dock stays predictable
+- realtime price and trading logic are preserved
 
-## Deploy
-Deploy the ZIP as the existing Render Web Service. Keep the same environment variables.
+Trading remains guarded by `TRADING_ENABLED=false` until explicitly enabled.

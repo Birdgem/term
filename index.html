@@ -293,6 +293,150 @@
             #mobileToolDrawer .drawer-scroll { max-height:calc(72svh - 52px); overflow-y:auto; }
         }
 
+
+        /* Stage 5.13 mobile scalper layout: compact dock, no button collisions. */
+        @media (max-width:767px) {
+            #mobileTradeDock {
+                max-height: 46svh;
+                padding-bottom: calc(5px + env(safe-area-inset-bottom));
+                overflow: hidden;
+            }
+            #mobileTradeDock > .mobile-trade-header {
+                padding: 5px 7px !important;
+                display:flex;
+                flex-direction:column;
+                gap:5px !important;
+            }
+            #mobileTradeDock .mobile-trade-topline,
+            #mobileTradeDock .mobile-trade-actions {
+                min-width:0;
+            }
+            #mobileTradeDock .mobile-trade-topline {
+                display:grid !important;
+                grid-template-columns:minmax(0,1fr) auto;
+                gap:5px;
+                align-items:center;
+            }
+            #mobileTradeDock .mobile-trade-topline-left {
+                min-width:0;
+                display:flex;
+                align-items:center;
+                gap:5px;
+                overflow:hidden;
+            }
+            #mobileTradeDock .mobile-trade-topline-right {
+                display:flex;
+                align-items:center;
+                gap:4px;
+                flex-shrink:0;
+            }
+            #mobileTradeDock .mobile-trade-statusline {
+                display:grid !important;
+                grid-template-columns:minmax(0,1fr) auto auto auto;
+                gap:4px;
+                align-items:center;
+            }
+            #mobileTradeDock .mobile-trade-statusline #mobilePositionCard {
+                min-width:0;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+            }
+            #mobileTradeDock #mobileCloseBtn {
+                min-width:66px;
+                width:66px;
+                min-height:34px;
+                height:34px;
+                padding:0 7px !important;
+            }
+            #mobileTradeDock #mobilePositionTabBtn,
+            #mobileTradeDock #mobileOrdersTabBtn {
+                min-width:40px;
+                width:40px;
+                padding:0 !important;
+                min-height:32px;
+                height:32px;
+            }
+            #mobileTradeDock .mobile-trade-toggle {
+                width:32px;
+                height:32px;
+            }
+            #mobileTradeDock .mobile-trade-body {
+                max-height:calc(46svh - 83px);
+                overflow-y:auto;
+                overflow-x:hidden;
+                padding-right:1px;
+                scrollbar-width:thin;
+            }
+            #mobileTradeDock .mobile-trade-body > * {
+                min-width:0;
+            }
+            #mobileTradeDock .mobile-trade-body .mobile-trade-row.compact {
+                grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr) minmax(0,1fr);
+            }
+            #mobileTradeDock .trade-input {
+                min-width:0;
+                min-height:38px;
+                height:38px;
+                padding:6px 8px;
+                font-size:12px;
+            }
+            #mobileTradeDock .trade-btn {
+                min-height:43px;
+                height:43px;
+            }
+            #mobileTradeDock .trade-preview {
+                grid-template-columns:repeat(4,minmax(0,1fr));
+                min-width:0;
+            }
+            #mobileTradeDock .trade-preview .v {
+                font-size:9px;
+            }
+            #mobileTradeDock .mobile-trade-scroll-row {
+                display:flex;
+                align-items:center;
+                gap:5px;
+                overflow-x:auto;
+                overflow-y:hidden;
+                flex-wrap:nowrap;
+                padding:1px 0 2px;
+                scrollbar-width:none;
+                -webkit-overflow-scrolling:touch;
+                overscroll-behavior-x:contain;
+            }
+            #mobileTradeDock .mobile-trade-scroll-row::-webkit-scrollbar { display:none; }
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick {
+                flex:0 0 auto;
+                min-width:45px;
+            }
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick[data-risk],
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick[data-rr] {
+                min-width:58px;
+            }
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick#mobileAutoSR { min-width:68px; }
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick#mobileMultiTpToggle,
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick#mobileAuto3Tp { min-width:62px; }
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick#mobileAutoBE { min-width:64px; }
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick {
+                min-height:30px;
+                height:30px;
+            }
+            #mobileTradeDock .mobile-trade-row.three {
+                grid-template-columns:repeat(3,minmax(92px,1fr));
+                overflow-x:auto;
+                scrollbar-width:none;
+            }
+            #mobileTradeDock .mobile-trade-row.three::-webkit-scrollbar { display:none; }
+            #mobileTradeDock .mobile-trade-row.three .trade-input { min-width:92px; }
+            #mobileTradeDock .mobile-trade-grid {
+                gap:5px;
+            }
+            #mobileTradeDock .trade-status {
+                min-height:15px;
+                line-height:15px;
+            }
+        }
+
         .realtime-flash { animation: realtimeFlash .18s ease-out; }
         @keyframes realtimeFlash { 0% { opacity:.65; } 100% { opacity:1; } }
         @media (max-width:767px) {
@@ -708,20 +852,22 @@
     <!-- Mobile Trading Dock -->
     <div id="mobileTradeDock" class="fixed bottom-0 left-0 right-0 z-40 bg-bybit-card/98 backdrop-blur-md border-t border-bybit-border shadow-2xl md:hidden">
         <div class="p-2 space-y-1.5 mobile-trade-header">
-            <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-1.5 min-w-0">
+            <div class="mobile-trade-topline">
+                <div class="mobile-trade-topline-left">
                     <span class="text-[10px] font-black text-bybit-yellow">TRADE</span>
                     <span id="mobileTradeMode" class="text-[8px] font-mono text-bybit-muted border border-bybit-border rounded px-1">LIVE OFF</span>
-                    <span id="mobilePositionCard" class="text-[9px] font-mono text-bybit-muted truncate">Нет позиции</span>
                 </div>
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <button id="mobilePositionTabBtn" class="trade-quick px-2">POS</button>
-                    <button id="mobileOrdersTabBtn" class="trade-quick px-2">ORD</button>
+                <div class="mobile-trade-topline-right">
                     <button id="mobileTradeToggleBtn" class="mobile-trade-toggle bg-bybit-bg border border-bybit-border text-bybit-muted" title="Свернуть торговую панель">
                         <i data-lucide="chevron-down" class="w-4 h-4"></i>
                     </button>
-                    <button id="mobileCloseBtn" class="trade-btn trade-close px-3 text-[10px]">CLOSE</button>
                 </div>
+            </div>
+            <div class="mobile-trade-statusline">
+                <span id="mobilePositionCard" class="text-[9px] font-mono text-bybit-muted truncate">Нет позиции</span>
+                <button id="mobilePositionTabBtn" class="trade-quick px-2">POS</button>
+                <button id="mobileOrdersTabBtn" class="trade-quick px-2">ORD</button>
+                <button id="mobileCloseBtn" class="trade-btn trade-close px-3 text-[10px]">CLOSE</button>
             </div>
             <div class="mobile-trade-body space-y-1.5">
                 <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -760,8 +906,8 @@
                     <input id="mobileTP" class="trade-input" type="number" step="any" placeholder="TP (optional)">
                     <input id="mobileSL" class="trade-input" type="number" step="any" placeholder="SL (optional)">
                 </div>
-                <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
-                    <span class="text-[9px] text-bybit-muted shrink-0">Быстрый риск</span>
+                <div class="mobile-trade-scroll-row">
+                    <span class="text-[9px] text-bybit-muted shrink-0">Риск</span>
                     <button class="trade-quick" data-risk="0.5">TP +0.5%</button>
                     <button class="trade-quick" data-risk="1">TP +1%</button>
                     <button class="trade-quick" data-risk="-0.5">SL 0.5%</button>
