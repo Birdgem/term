@@ -3,7 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bybit Auto Technical Analysis Pro (Buy/Sell Dominance)</title>
+    <title>Bybit Scalper Terminal</title>
+    <meta name="theme-color" content="#0d1117">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bybit Scalper">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icons/icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lightweight Charts v4.1.1 CDN -->
@@ -183,6 +191,59 @@
             }
         }
     
+        /* ===== Stage 5.14 Mobile terminal shell ===== */
+        #mobileChartTools { display:none; }
+        .mobile-strength-strip { display:none; }
+        #installAppBtn { display:none; }
+        #fullscreenBtn.fullscreen-active { color:#f7a600; border-color:rgba(247,166,0,.45); background:rgba(247,166,0,.10); }
+        @media (max-width:767px) {
+            #mobileChartTools {
+                display:flex;
+                position:absolute;
+                top:7px;
+                right:7px;
+                z-index:25;
+                align-items:center;
+                gap:3px;
+                padding:3px;
+                border:1px solid #21262d;
+                border-radius:9px;
+                background:rgba(13,17,23,.88);
+                backdrop-filter:blur(8px);
+                box-shadow:0 4px 14px rgba(0,0,0,.35);
+            }
+            #mobileChartTools .mobile-tf-btn {
+                min-width:34px; min-height:27px; padding:3px 6px; border-radius:6px;
+                color:#8b949e; background:transparent; border:1px solid transparent;
+                font:800 10px ui-monospace,monospace; touch-action:manipulation;
+            }
+            #mobileChartTools .mobile-tf-btn.active {
+                color:#f7a600; background:#161b22; border-color:rgba(247,166,0,.45);
+            }
+            #mobileChartTools .mobile-chart-action {
+                width:28px; min-width:28px; height:27px; padding:0; display:flex; align-items:center; justify-content:center;
+                color:#8b949e; background:transparent; border:1px solid #30363d; border-radius:6px;
+            }
+            #mobileTradeDock .mobile-strength-strip {
+                display:grid; grid-template-columns:auto minmax(70px,1fr) auto; align-items:center; gap:6px;
+                padding:5px 7px; border:1px solid #21262d; border-radius:8px; background:#0d1117;
+                font:700 9px ui-monospace,monospace;
+            }
+            #mobileTradeDock .mobile-strength-bar {
+                height:6px; border-radius:999px; overflow:hidden; display:flex; background:#21262d;
+            }
+            #mobileTradeDock .mobile-strength-bar .buy { height:100%; background:#0ecb81; width:50%; transition:width .25s ease; }
+            #mobileTradeDock .mobile-strength-bar .sell { height:100%; background:#f6465d; width:50%; transition:width .25s ease; }
+            #mobileTradeDock .mobile-strength-value { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            #mobileTradeDock .mobile-strength-meta { white-space:nowrap; }
+            body.pwa-standalone #installAppBtn { display:none !important; }
+            body.pwa-standalone #topHeader { padding-top:calc(6px + env(safe-area-inset-top)); }
+            body.pwa-standalone #mobileTradeDock { padding-bottom:calc(7px + env(safe-area-inset-bottom)); }
+            body.is-fullscreen #mobileTradeDock { bottom:0; }
+            body.is-fullscreen #priceChartContainer { height:clamp(360px, 62svh, 680px) !important; }
+        }
+        @media (min-width:768px) { #mobileChartTools { display:none !important; } }
+
         /* ===== Stage 4 Trading UI ===== */
         .trade-panel { border-bottom: 1px solid #21262d; background:#161b22; }
         .trade-field { min-width: 0; }
@@ -613,6 +674,13 @@
                     <span id="mobilePatternBadge" class="bg-bybit-yellow text-black font-mono text-[9px] px-1 rounded-full font-bold">0</span>
                 </button>
 
+                <button id="fullscreenBtn" class="bg-bybit-bg hover:bg-bybit-hover border border-bybit-border text-bybit-muted hover:text-white p-1.5 rounded-lg text-xs flex items-center justify-center transition-colors" title="Полный экран / режим приложения">
+                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                </button>
+                <button id="installAppBtn" class="bg-bybit-yellow/10 hover:bg-bybit-yellow/20 border border-bybit-yellow/30 text-bybit-yellow p-1.5 rounded-lg text-xs items-center justify-center transition-colors" title="Установить как приложение">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                </button>
+
                 <button id="openHelpBtn" class="bg-bybit-bg hover:bg-bybit-hover border border-bybit-border text-bybit-muted hover:text-white p-1.5 rounded-lg text-xs flex items-center transition-colors" title="Справочник паттернов">
                     <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
                 </button>
@@ -620,7 +688,7 @@
         </div>
 
         <!-- Timeframe Selector & Feature Toggles Bar -->
-        <div class="flex items-center justify-between gap-2 w-full overflow-x-auto no-scrollbar">
+        <div id="desktopTimeframeBar" class="flex items-center justify-between gap-2 w-full overflow-x-auto no-scrollbar">
             <div class="flex items-center space-x-0.5 bg-bybit-bg p-0.5 rounded-lg border border-bybit-border shrink-0" id="intervalGroup">
                 <button data-interval="1" class="px-2 py-0.5 text-[10px] rounded font-medium text-bybit-muted hover:text-white transition-colors">1m</button>
                 <button data-interval="5" class="px-2 py-0.5 text-[10px] rounded font-medium text-bybit-muted hover:text-white transition-colors">5m</button>
@@ -757,6 +825,15 @@
 
             <div id="chartsArea">
                 <div id="priceChartContainer" class="chart-panel">
+                    <div id="mobileChartTools" aria-label="Таймфрейм и управление графиком">
+                        <button class="mobile-tf-btn" data-mobile-interval="1">1m</button>
+                        <button class="mobile-tf-btn" data-mobile-interval="5">5m</button>
+                        <button class="mobile-tf-btn" data-mobile-interval="15">15m</button>
+                        <button class="mobile-tf-btn" data-mobile-interval="60">1h</button>
+                        <button class="mobile-tf-btn" data-mobile-interval="240">4h</button>
+                        <button class="mobile-tf-btn" data-mobile-interval="D">1D</button>
+                        <button id="mobileFullscreenBtn" class="mobile-chart-action" title="Полный экран"><i data-lucide="maximize-2" class="w-3.5 h-3.5"></i></button>
+                    </div>
                     <div class="panel-title">PRICE</div>
                 </div>
 
@@ -868,6 +945,11 @@
                 <button id="mobilePositionTabBtn" class="trade-quick px-2">POS</button>
                 <button id="mobileOrdersTabBtn" class="trade-quick px-2">ORD</button>
                 <button id="mobileCloseBtn" class="trade-btn trade-close px-3 text-[10px]">CLOSE</button>
+            </div>
+            <div class="mobile-strength-strip" aria-label="Баланс сил">
+                <span class="text-bybit-muted">B/S</span>
+                <div class="mobile-strength-bar"><div id="mobileTradeBuyBar" class="buy"></div><div id="mobileTradeSellBar" class="sell"></div></div>
+                <span id="mobileTradeStrengthValue" class="mobile-strength-value text-bybit-green">3.8x Покупатели</span>
             </div>
             <div class="mobile-trade-body space-y-1.5">
                 <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -1771,6 +1853,7 @@
 
                 currentInterval = btn.dataset.interval;
                 document.getElementById('intervalText').innerText = btn.innerText;
+                if (typeof syncMobileTimeframeButtons === 'function') syncMobileTimeframeButtons();
                 fetchData();
             });
 
@@ -1833,6 +1916,87 @@
                     setTimeout(() => { if (icon) icon.classList.remove('animate-spin'); }, 500);
                 }
             };
+
+            // ===== Stage 5.14: mobile chart timeframe + app shell =====
+            function syncMobileTimeframeButtons() {
+                document.querySelectorAll('[data-mobile-interval]').forEach(btn => {
+                    btn.classList.toggle('active', String(btn.dataset.mobileInterval) === String(currentInterval));
+                });
+                const desktopGroup = document.getElementById('intervalGroup');
+                if (desktopGroup) desktopGroup.querySelectorAll('button').forEach(btn => {
+                    const active = String(btn.dataset.interval) === String(currentInterval);
+                    btn.className = active
+                        ? 'px-2 py-0.5 text-[10px] rounded font-bold text-bybit-yellow bg-bybit-card border border-bybit-yellow/30 shadow-sm'
+                        : 'px-2 py-0.5 text-[10px] rounded font-medium text-bybit-muted hover:text-white transition-colors';
+                });
+            }
+            document.querySelectorAll('[data-mobile-interval]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const interval = btn.dataset.mobileInterval;
+                    const desktopBtn = document.querySelector(`#intervalGroup [data-interval="${interval}"]`);
+                    if (desktopBtn) desktopBtn.click();
+                    else {
+                        currentInterval = interval;
+                        syncMobileTimeframeButtons();
+                        reconnectMarketWS();
+                        loadCandles();
+                    }
+                });
+            });
+            syncMobileTimeframeButtons();
+
+            function isStandaloneApp() {
+                return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || window.navigator.standalone === true;
+            }
+            function updateAppModeUi() {
+                document.body.classList.toggle('pwa-standalone', isStandaloneApp());
+                const fs = !!document.fullscreenElement;
+                document.body.classList.toggle('is-fullscreen', fs);
+                const btn = document.getElementById('fullscreenBtn');
+                const mobileBtn = document.getElementById('mobileFullscreenBtn');
+                [btn, mobileBtn].forEach(b => { if (b) b.classList.toggle('fullscreen-active', fs); });
+            }
+            async function toggleTerminalFullscreen() {
+                try {
+                    if (document.fullscreenElement) await document.exitFullscreen();
+                    else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+                    else {
+                        setTradeStatus?.('Для полного режима установи терминал как приложение', 'muted');
+                    }
+                } catch (e) {
+                    console.warn('Fullscreen unavailable:', e);
+                    try { setTradeStatus?.('Полный экран: установи терминал как приложение', 'muted'); } catch {}
+                }
+                updateAppModeUi();
+            }
+            document.getElementById('fullscreenBtn')?.addEventListener('click', toggleTerminalFullscreen);
+            document.getElementById('mobileFullscreenBtn')?.addEventListener('click', toggleTerminalFullscreen);
+            document.addEventListener('fullscreenchange', updateAppModeUi);
+            updateAppModeUi();
+
+            let deferredInstallPrompt = null;
+            window.addEventListener('beforeinstallprompt', (event) => {
+                event.preventDefault();
+                deferredInstallPrompt = event;
+                const installBtn = document.getElementById('installAppBtn');
+                if (installBtn && !isStandaloneApp()) installBtn.style.display = 'flex';
+            });
+            document.getElementById('installAppBtn')?.addEventListener('click', async () => {
+                if (!deferredInstallPrompt) return;
+                deferredInstallPrompt.prompt();
+                try { await deferredInstallPrompt.userChoice; } catch {}
+                deferredInstallPrompt = null;
+                document.getElementById('installAppBtn').style.display = 'none';
+            });
+            window.addEventListener('appinstalled', () => {
+                deferredInstallPrompt = null;
+                const installBtn = document.getElementById('installAppBtn');
+                if (installBtn) installBtn.style.display = 'none';
+                updateAppModeUi();
+            });
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW:', err)));
+            }
 
             document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
             document.getElementById('mobileRefreshBtn')?.addEventListener('click', () => doManualRefresh('mobileRefreshIcon'));
@@ -3114,6 +3278,16 @@
             }
             if (mobileDomBuyBar) mobileDomBuyBar.style.width = `${dominanceData.buyPct}%`;
             if (mobileDomSellBar) mobileDomSellBar.style.width = `${dominanceData.sellPct}%`;
+
+            const tradeBuyBar = document.getElementById('mobileTradeBuyBar');
+            const tradeSellBar = document.getElementById('mobileTradeSellBar');
+            const tradeStrength = document.getElementById('mobileTradeStrengthValue');
+            if (tradeBuyBar) tradeBuyBar.style.width = `${dominanceData.buyPct}%`;
+            if (tradeSellBar) tradeSellBar.style.width = `${dominanceData.sellPct}%`;
+            if (tradeStrength) {
+                tradeStrength.innerText = dominanceData.labelText;
+                tradeStrength.className = `mobile-strength-value ${isBuy ? 'text-bybit-green' : 'text-bybit-red'}`;
+            }
         }
 
         function drawOrderBookWalls() {

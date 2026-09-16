@@ -101,6 +101,22 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, result: data.result });
     }
 
+    if (url.pathname === '/manifest.webmanifest') {
+      const body = await fs.readFile(path.join(__dirname, 'manifest.webmanifest'));
+      res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(body);
+    }
+    if (url.pathname === '/sw.js') {
+      const body = await fs.readFile(path.join(__dirname, 'sw.js'));
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store', 'Service-Worker-Allowed': '/' });
+      return res.end(body);
+    }
+    if (url.pathname === '/icons/icon-192.png' || url.pathname === '/icons/icon-512.png') {
+      const body = await fs.readFile(path.join(__dirname, url.pathname.slice(1)));
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+      return res.end(body);
+    }
+
     if (url.pathname === '/' || url.pathname === '/index.html') {
       const html = await fs.readFile(path.join(__dirname, 'index.html'));
       if (String(req.headers['accept-encoding'] || '').includes('gzip')) {

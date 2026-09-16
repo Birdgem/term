@@ -1,14 +1,12 @@
-# Bybit Scalping Terminal — Stage 5.13 Mobile Scalper
+# Bybit Scalper Terminal — Stage 5.14
 
-Render Web Service for Bybit Global Unified account.
+Mobile-first Bybit Global scalping terminal.
 
-Stage 5.13 focuses on mobile trading ergonomics without changing the working realtime/trading architecture:
-- compact two-line mobile trade header
-- POS / ORD / CLOSE controls no longer compete with the symbol/status area
-- bounded mobile trade dock with internal scrolling
-- quick-risk / AUTO S/R / Multi-TP controls use a dedicated horizontal scroll row
-- Multi-TP inputs remain touch-friendly
-- chart gets more usable space while the dock stays predictable
-- realtime price and trading logic are preserved
-
-Trading remains guarded by `TRADING_ENABLED=false` until explicitly enabled.
+Stage 5.14:
+- mobile timeframe buttons moved onto the chart;
+- B/S strength strip moved directly into the mobile trading dock;
+- mobile fullscreen button and browser Fullscreen API support;
+- installable PWA shell (`manifest.webmanifest` + service worker + icons);
+- standalone app mode for Android home-screen installation;
+- existing realtime market/trading/Multi-TP/AUTO S/R mechanics preserved;
+- trading remains disabled until explicitly enabled.
