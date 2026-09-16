@@ -980,6 +980,23 @@
             #mobileTradeDock .trade-preview .v { font-size: 9px !important; }
             #mobileTradeDock .mobile-trade-grid { gap: 4px !important; }
             #mobileTradeDock .trade-status { font-size: 8px !important; min-height: 12px !important; line-height: 12px !important; }
+
+            /* Stage 5.25.1 — keep the actual entry buttons visible while the compact body scrolls. */
+            #mobileTradeDock .mobile-trade-grid {
+                position: sticky;
+                bottom: 0;
+                z-index: 6;
+                margin-top: 3px !important;
+                padding: 3px 0 calc(3px + env(safe-area-inset-bottom)) !important;
+                background: linear-gradient(to bottom, rgba(13,17,23,.18), rgba(13,17,23,.92) 35%, rgba(13,17,23,.96));
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            }
+            #mobileTradeDock .mobile-trade-grid .trade-btn {
+                height: 36px !important;
+                min-height: 36px !important;
+                font-size: 11px !important;
+            }
         }
 
     </style>
