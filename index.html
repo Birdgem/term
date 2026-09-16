@@ -1985,18 +1985,42 @@
             const resistance = Number(resistances[0].avgPrice);
             const support = Number(supports[0].avgPrice);
             const tick = Number(tradeState.instrument?.priceFilter?.tickSize || 0);
-            const buffer = Math.max(price * 0.0005, tick * 2);
+            // Scalping rule: TP must sit INSIDE the S/R level, never on or beyond it.
+            // Use a small tick-aware offset so the order has room before the liquidity zone.
+            const levelBuffer = Math.max(tick * 2, price * 0.00015);
+            const normalizeInside = (value, direction) => {
+                const raw = Number(normalizePrice(value));
+                const step = tick > 0 ? tick : 0;
+                if (!(raw > 0)) return 0;
+                if (step > 0) {
+                    const units = direction === 'down' ? Math.floor(raw / step + 1e-10) : Math.ceil(raw / step - 1e-10);
+                    return Number((units * step).toFixed(12));
+                }
+                return raw;
+            };
             let tp, sl;
             if (side === 'Buy') {
-                tp = resistance - buffer;
-                sl = support - buffer;
+                // LONG: take profit before resistance; stop below support.
+                tp = normalizeInside(resistance - levelBuffer, 'down');
+                sl = normalizeInside(support - levelBuffer, 'down');
+                // Guarantee at least one tick of clearance from resistance/current price.
+                if (tick > 0) {
+                    tp = Math.min(tp, normalizeInside(resistance - tick, 'down'));
+                    tp = Math.max(tp, normalizeInside(price + tick, 'up'));
+                }
             } else {
-                tp = support + buffer;
-                sl = resistance + buffer;
+                // SHORT: take profit before support; stop above resistance.
+                tp = normalizeInside(support + levelBuffer, 'up');
+                sl = normalizeInside(resistance + levelBuffer, 'up');
+                // Guarantee at least one tick of clearance from support/current price.
+                if (tick > 0) {
+                    tp = Math.max(tp, normalizeInside(support + tick, 'up'));
+                    tp = Math.min(tp, normalizeInside(price - tick, 'down'));
+                }
             }
-            tp = Number(normalizePrice(tp));
-            sl = Number(normalizePrice(sl));
-            const valid = side === 'Buy' ? (tp > price && sl < price) : (tp < price && sl > price);
+            const valid = side === 'Buy'
+                ? (tp > price && tp < resistance && sl < price && sl < support)
+                : (tp < price && tp > support && sl > price && sl > resistance);
             if (!valid) {
                 setTradeStatus('AUTO S/R: уровни слишком близко к текущей цене', 'muted');
                 return;
