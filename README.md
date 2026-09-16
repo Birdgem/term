@@ -1,4 +1,4 @@
-# Bybit Scalper Terminal — Stage 5.20.2
+# Bybit Scalper Terminal — Stage 5.21
 
 Mobile-first dedicated Scalp Mode with terminal access protection and balance display.
 
@@ -34,6 +34,13 @@ If the token is compromised, rotate `TERMINAL_ACCESS_TOKEN` in Render and enter 
 Existing realtime feeds, Multi-TP, AUTO S/R, position manager, Scalp Mode, and mobile UI are preserved.
 
 
-## Stage 5.20.2 hotfix
+## Stage 5.21 hotfix
 
 Bybit error 110043 (leverage not modified because the requested leverage is already active) is treated as a successful no-op. The order flow continues normally.
+
+
+### Stage 5.21 — Limit TP/SL
+- TP/SL on positions use Bybit Partial TP/SL with Limit execution instead of Market execution.
+- Market and Limit entries can carry TP/SL as Limit protection in the same order request when supplied.
+- Multi-TP exits are conditional Limit orders.
+- The trigger price and limit price are intentionally equal: no automatic extra slippage buffer is added.

@@ -153,12 +153,39 @@ export async function cancelAll(symbol = '') {
   return request('POST', '/v5/order/cancel-all', params);
 }
 
-export async function setTradingStop({ symbol, takeProfit, stopLoss, trailingStop, tpTriggerBy, slTriggerBy, activePrice, positionIdx = 0 }) {
+export async function setTradingStop({ symbol, takeProfit, stopLoss, trailingStop, tpTriggerBy, slTriggerBy, activePrice, positionIdx = 0, limitTpSl = true }) {
   assertTradingEnabled();
-  const params = { category: 'linear', symbol: String(symbol || '').toUpperCase(), positionIdx };
-  if (takeProfit !== undefined && takeProfit !== null && takeProfit !== '') params.takeProfit = String(takeProfit);
-  if (stopLoss !== undefined && stopLoss !== null && stopLoss !== '') params.stopLoss = String(stopLoss);
-  if (trailingStop !== undefined && trailingStop !== null && trailingStop !== '') params.trailingStop = String(trailingStop);
+  const sym = String(symbol || '').toUpperCase();
+  const params = { category: 'linear', symbol: sym, positionIdx };
+  const hasTp = takeProfit !== undefined && takeProfit !== null && takeProfit !== '' && String(takeProfit) !== '0';
+  const hasSl = stopLoss !== undefined && stopLoss !== null && stopLoss !== '' && String(stopLoss) !== '0';
+  const hasTs = trailingStop !== undefined && trailingStop !== null && trailingStop !== '';
+
+  // Clearing TP/SL or setting trailing stop keeps the legacy Full/Market-compatible path.
+  // For an actual TP/SL value, use Bybit Partial + Limit so the trigger does not turn into a Market close.
+  if (hasTp || hasSl) {
+    const posData = await getPosition(sym);
+    const pos = (posData?.result?.list || []).find(p => Number(p.positionIdx) === Number(positionIdx) && Number(p.size) > 0);
+    if (!pos) throw new Error(`No open position for ${sym} positionIdx=${positionIdx}`);
+    const size = String(pos.size);
+    params.tpslMode = 'Partial';
+    params.tpSize = size;
+    params.slSize = size;
+    if (hasTp) {
+      params.takeProfit = String(takeProfit);
+      params.tpOrderType = limitTpSl === false ? 'Market' : 'Limit';
+      params.tpLimitPrice = String(takeProfit);
+    }
+    if (hasSl) {
+      params.stopLoss = String(stopLoss);
+      params.slOrderType = limitTpSl === false ? 'Market' : 'Limit';
+      params.slLimitPrice = String(stopLoss);
+    }
+  } else {
+    if (takeProfit !== undefined && takeProfit !== null && takeProfit !== '') params.takeProfit = String(takeProfit);
+    if (stopLoss !== undefined && stopLoss !== null && stopLoss !== '') params.stopLoss = String(stopLoss);
+  }
+  if (hasTs) params.trailingStop = String(trailingStop);
   if (tpTriggerBy) params.tpTriggerBy = tpTriggerBy;
   if (slTriggerBy) params.slTriggerBy = slTriggerBy;
   if (activePrice !== undefined && activePrice !== null && activePrice !== '') params.activePrice = String(activePrice);
@@ -234,7 +261,7 @@ export async function applyMultiTakeProfits({ symbol, positionIdx = 0, levels = 
     if (!(qty > 0) || (minQty > 0 && qty < minQty)) throw new Error(`TP${i+1} size is below instrument minimum qty`);
     const link = `MTP_${i+1}_${Date.now().toString(36)}`;
     const data = await placeOrder({
-      symbol: sym, side: closeSide, orderType: 'Market', qty: String(qty), positionIdx,
+      symbol: sym, side: closeSide, orderType: 'Limit', qty: String(qty), price: String(ordered[i]), timeInForce: 'GTC', positionIdx,
       reduceOnly: true, closeOnTrigger: true, triggerPrice: String(ordered[i]),
       triggerDirection: isLong ? 1 : 2, triggerBy: 'MarkPrice', orderLinkId: link
     });

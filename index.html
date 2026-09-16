@@ -3188,6 +3188,16 @@
                 await fetch('/api/leverage', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({symbol:currentSymbol, leverage})}).then(async r=>{const j=await r.json(); if(!r.ok||!j.ok) throw new Error(j.error||'Ошибка плеча');});
                 const body = { symbol: currentSymbol, side, orderType, qty };
                 if (orderType === 'Limit') { body.price = normalizePrice(e.limitPrice.value); body.timeInForce = 'GTC'; }
+                // Attach single-level TP/SL directly to the entry order. This removes the
+                // dangerous gap between a Market fill and a second REST call that creates protection.
+                // Bybit supports Limit TP/SL for linear futures only with tpslMode=Partial.
+                if (!multiActive && (tp || sl)) {
+                    body.tpslMode = 'Partial';
+                    body.tpTriggerBy = 'MarkPrice';
+                    body.slTriggerBy = 'MarkPrice';
+                    if (tp) { body.takeProfit = tp; body.tpOrderType = 'Limit'; body.tpLimitPrice = tp; }
+                    if (sl) { body.stopLoss = sl; body.slOrderType = 'Limit'; body.slLimitPrice = sl; }
+                }
                 const r = await fetch('/api/order', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
                 const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.error || 'Ошибка открытия ордера');
                 setTradeStatus(`Ордер принят: ${j.result?.orderId || 'OK'}`, 'ok');
@@ -3199,16 +3209,9 @@
                     else if (orderType === 'Limit') setTradeStatus('Limit принят. После открытия нажми 3 TP → APPLY.', 'ok');
                     else setTradeStatus('Ордер принят, позиция ещё не появилась.', 'error');
                 } else if (tp || sl) {
-                    const pr = tradeState.position;
-                    if (pr) {
-                        const sr = await fetch('/api/trading-stop', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({symbol:currentSymbol, positionIdx:Number(pr.positionIdx||0), takeProfit:tp||undefined, stopLoss:sl||undefined, tpTriggerBy:'MarkPrice', slTriggerBy:'MarkPrice'})});
-                        const sj = await sr.json(); if(!sr.ok||!sj.ok) throw new Error('Позиция открыта, но TP/SL не установлен: '+(sj.error||''));
-                        setTradeStatus('Позиция открыта, TP/SL установлен', 'ok');
-                    } else if (orderType === 'Limit') {
-                        setTradeStatus('Limit принят. TP/SL установится после открытия позиции.', 'ok');
-                    } else {
-                        setTradeStatus('Ордер принят, но позиция ещё не появилась. TP/SL не установлен.', 'error');
-                    }
+                    setTradeStatus(orderType === 'Limit'
+                        ? 'Limit принят · TP/SL Limit привязан к ордеру'
+                        : 'Позиция открыта · TP/SL Limit уже защищает позицию', 'ok');
                 }
             } catch(err) { setTradeStatus(err.message, 'error'); }
             finally { tradeState.busy=false; setTradeButtonsDisabled(!tradeState.tradingEnabled); await refreshPosition(); }
