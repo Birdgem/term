@@ -1768,6 +1768,7 @@
         let rsi30Series = null;
 
         let macdLineSeries = null;
+        let candleMarkers = null;
         let macdSignalSeries = null;
         let macdHistogramSeries = null;
         let srPriceLines = [];
@@ -2008,6 +2009,9 @@
                 }
             });
 
+            // Lightweight Charts v5 moved series markers to a dedicated plugin.
+            candleMarkers = LightweightCharts.createSeriesMarkers(candleSeries, []);
+
             ema20Series = chart.addSeries(LightweightCharts.LineSeries, { color: '#f7a600', lineWidth: 1.4, title: 'EMA 20', lastValueVisible: false, priceLineVisible: false });
             ema50Series = chart.addSeries(LightweightCharts.LineSeries, { color: '#29b6f6', lineWidth: 1.4, title: 'EMA 50', lastValueVisible: false, priceLineVisible: false });
             ema200Series = chart.addSeries(LightweightCharts.LineSeries, { color: '#ab47bc', lineWidth: 1.6, title: 'EMA 200', lastValueVisible: false, priceLineVisible: false });
@@ -2120,7 +2124,7 @@
 
             if (candleSeries) {
                 candleSeries.setData([]);
-                candleSeries.setMarkers([]);
+                if (candleMarkers) candleMarkers.setMarkers([]);
             }
             if (volumeSeries) volumeSeries.setData([]);
             if (ema20Series) ema20Series.setData([]);
@@ -3713,7 +3717,7 @@
                 const list = json.result.list.reverse();
 
                 rawCandles = list.map(item => ({
-                    time: parseInt(item[0]) / 1000,
+                    time: Math.floor(parseInt(item[0], 10) / 1000),
                     open: parseFloat(item[1]),
                     high: parseFloat(item[2]),
                     low: parseFloat(item[3]),
@@ -4499,7 +4503,7 @@
                 patternsList = analysis.patterns;
             }
 
-            candleSeries.setMarkers(markers);
+            if (candleMarkers) candleMarkers.setMarkers(markers);
             renderPatternPanel(patternsList);
 
             updateIndicators();
