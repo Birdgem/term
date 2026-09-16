@@ -1,4 +1,4 @@
-const CACHE = 'bybit-scalper-shell-v514';
+const CACHE = 'bybit-scalper-shell-v515';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));

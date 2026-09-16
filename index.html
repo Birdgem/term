@@ -197,11 +197,13 @@
         #installAppBtn { display:none; }
         #fullscreenBtn.fullscreen-active { color:#f7a600; border-color:rgba(247,166,0,.45); background:rgba(247,166,0,.10); }
         @media (max-width:767px) {
+            #desktopTimeframeBar { display:none !important; }
             #mobileChartTools {
                 display:flex;
                 position:absolute;
                 top:7px;
-                right:7px;
+                left:7px;
+                right:auto;
                 z-index:25;
                 align-items:center;
                 gap:3px;
@@ -223,6 +225,10 @@
             #mobileChartTools .mobile-chart-action {
                 width:28px; min-width:28px; height:27px; padding:0; display:flex; align-items:center; justify-content:center;
                 color:#8b949e; background:transparent; border:1px solid #30363d; border-radius:6px;
+                font:900 9px ui-monospace,monospace;
+            }
+            #mobileChartTools .mobile-chart-action.chart-toggle-active {
+                color:#f7a600; border-color:rgba(247,166,0,.4); background:rgba(247,166,0,.08);
             }
             #mobileTradeDock .mobile-strength-strip {
                 display:grid; grid-template-columns:auto minmax(70px,1fr) auto; align-items:center; gap:6px;
@@ -833,6 +839,8 @@
                         <button class="mobile-tf-btn" data-mobile-interval="240">4h</button>
                         <button class="mobile-tf-btn" data-mobile-interval="D">1D</button>
                         <button id="mobileFullscreenBtn" class="mobile-chart-action" title="Полный экран"><i data-lucide="maximize-2" class="w-3.5 h-3.5"></i></button>
+                        <button id="mobileVolumeBtn" class="mobile-chart-action chart-toggle-active" title="Volume">V</button>
+                        <button id="mobileOrderbookBtn" class="mobile-chart-action chart-toggle-active" title="Стакан">S</button>
                     </div>
                     <div class="panel-title">PRICE</div>
                 </div>
@@ -1971,6 +1979,16 @@
             }
             document.getElementById('fullscreenBtn')?.addEventListener('click', toggleTerminalFullscreen);
             document.getElementById('mobileFullscreenBtn')?.addEventListener('click', toggleTerminalFullscreen);
+            document.getElementById('mobileVolumeBtn')?.addEventListener('click', () => {
+                const el = document.getElementById('toggleVolume');
+                if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change', {bubbles:true})); }
+                document.getElementById('mobileVolumeBtn')?.classList.toggle('chart-toggle-active', !!el?.checked);
+            });
+            document.getElementById('mobileOrderbookBtn')?.addEventListener('click', () => {
+                const el = document.getElementById('toggleOrderbook');
+                if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change', {bubbles:true})); }
+                document.getElementById('mobileOrderbookBtn')?.classList.toggle('chart-toggle-active', !!el?.checked);
+            });
             document.addEventListener('fullscreenchange', updateAppModeUi);
             updateAppModeUi();
 
