@@ -123,7 +123,7 @@ export async function setLeverage(symbol, leverage) {
 
 export async function placeOrder(order) {
   assertTradingEnabled();
-  const allowed = ['category','symbol','side','orderType','qty','price','timeInForce','positionIdx','reduceOnly','closeOnTrigger','orderLinkId','takeProfit','stopLoss','tpTriggerBy','slTriggerBy','tpslMode','tpOrderType','slOrderType','triggerPrice','triggerDirection','triggerBy'];
+  const allowed = ['category','symbol','side','orderType','qty','price','timeInForce','positionIdx','reduceOnly','closeOnTrigger','orderLinkId','takeProfit','stopLoss','tpTriggerBy','slTriggerBy','tpslMode','tpOrderType','slOrderType','tpLimitPrice','slLimitPrice','triggerPrice','triggerDirection','triggerBy'];
   const params = {};
   for (const key of allowed) if (order[key] !== undefined && order[key] !== null && order[key] !== '') params[key] = order[key];
   params.category = 'linear';
