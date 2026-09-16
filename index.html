@@ -352,6 +352,28 @@
 
         .position-positive { color:#2ea043 !important; }
         .position-negative { color:#f85149 !important; }
+        .position-history-list { display:flex; flex-direction:column; gap:5px; }
+        .position-history-row { display:grid; grid-template-columns:1.05fr 1fr 1fr; gap:6px; padding:7px 8px; border:1px solid #242a33; border-radius:9px; background:#0b0f14; font:700 9px ui-monospace,monospace; }
+        .position-history-row .k { display:block; color:#6e7681; font-size:7px; margin-bottom:2px; }
+        .position-history-row .v { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .position-history-row.win { border-color:rgba(14,203,129,.22); }
+        .position-history-row.loss { border-color:rgba(246,70,93,.22); }
+        #positionClosedModal { position:fixed; inset:0; z-index:12000; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(0,0,0,.72); backdrop-filter:blur(10px); }
+        #positionClosedModal.hidden { display:none; }
+        .position-closed-card { width:min(92vw,380px); border:1px solid #30363d; border-radius:18px; background:#11161d; box-shadow:0 20px 60px rgba(0,0,0,.65); overflow:hidden; }
+        .position-closed-card .hero { padding:18px 18px 12px; text-align:center; border-bottom:1px solid #242a33; }
+        .position-closed-card .pnl { font:900 28px ui-monospace,monospace; margin-top:5px; }
+        .position-closed-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:12px 14px; }
+        .position-closed-grid .item { border:1px solid #242a33; border-radius:10px; padding:8px; background:#0b0f14; }
+        .position-closed-grid .k { display:block; color:#6e7681; font-size:8px; margin-bottom:3px; }
+        .position-closed-grid .v { display:block; color:#f0f6fc; font:800 11px ui-monospace,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .wall-band-overlay { position:absolute; inset:0; z-index:5; pointer-events:none; overflow:hidden; }
+        .wall-band { position:absolute; left:0; right:0; transform:translateY(-50%); border-top:1px solid; border-bottom:1px solid; pointer-events:none; }
+        @media (max-width:767px) {
+          .position-history-row { padding:6px 7px; }
+          .position-history-row .v { font-size:9px; }
+          #positionClosedModal { padding:12px; }
+        }
         .position-manager { border:1px solid #30363d; border-radius:10px; background:#0d1117; padding:7px; }
         .position-manager-grid { display:grid; grid-template-columns:1.1fr 1fr 1fr; gap:5px; }
         .position-manager-stat { min-width:0; }
@@ -1118,6 +1140,7 @@
                         <button id="mobileRsiBtn" class="mobile-chart-action chart-toggle-active" title="RSI">R</button>
                         <button id="mobileMacdBtn" class="mobile-chart-action chart-toggle-active" title="MACD">M</button>
                     </div>
+                    <div id="orderbookWallBandOverlay" class="wall-band-overlay" aria-hidden="true"></div>
                     <div class="panel-title">PRICE</div>
                 </div>
 
@@ -1312,6 +1335,26 @@
         </div>
     </div>
 
+    <!-- Closed position popup -->
+    <div id="positionClosedModal" class="hidden">
+        <div class="position-closed-card">
+            <div class="hero">
+                <div class="text-[11px] font-black text-bybit-yellow uppercase">Позиция закрыта</div>
+                <div id="closedModalTitle" class="text-white text-sm font-black mt-1">BRUSDT LONG</div>
+                <div id="closedModalPnl" class="pnl">+0.000 USDT</div>
+            </div>
+            <div class="position-closed-grid">
+                <div class="item"><span class="k">Размер</span><span id="closedModalQty" class="v">—</span></div>
+                <div class="item"><span class="k">Вход</span><span id="closedModalEntry" class="v">—</span></div>
+                <div class="item"><span class="k">Выход</span><span id="closedModalExit" class="v">—</span></div>
+                <div class="item"><span class="k">Комиссии</span><span id="closedModalFees" class="v">—</span></div>
+            </div>
+            <div class="px-14 pb-14" style="padding:0 14px 14px">
+                <button id="closedModalHistoryBtn" class="w-full py-2 rounded-xl border border-bybit-border bg-bybit-bg text-white text-xs font-black">ОТКРЫТЬ ИСТОРИЮ</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile Position / Orders Drawer -->
     <div id="mobileToolDrawer" class="mobile-tool-drawer hidden md:hidden">
         <div class="mobile-tool-tabs">
@@ -1335,6 +1378,16 @@
                     <div class="position-manager-stat"><span class="k">SL</span><span id="mobilePosSl" class="v">—</span></div>
                     <div class="position-manager-stat"><span class="k">Trailing</span><span id="mobilePosTs" class="v">—</span></div>
                 </div>
+                <div class="position-manager-grid mt-1.5">
+                    <div class="position-manager-stat"><span class="k">Номинал</span><span id="mobilePosValue" class="v">—</span></div>
+                    <div class="position-manager-stat"><span class="k">Плечо</span><span id="mobilePosLeverage" class="v">—</span></div>
+                    <div class="position-manager-stat"><span class="k">Ликвидация</span><span id="mobilePosLiq" class="v">—</span></div>
+                </div>
+                <div class="position-manager-grid mt-1.5">
+                    <div class="position-manager-stat"><span class="k">Realized</span><span id="mobilePosRealized" class="v">—</span></div>
+                    <div class="position-manager-stat"><span class="k">Маржа</span><span id="mobilePosMargin" class="v">—</span></div>
+                    <div class="position-manager-stat"><span class="k">PnL %</span><span id="mobilePosRoi" class="v">—</span></div>
+                </div>
                 <div class="position-manager-actions mt-1.5">
                     <button class="position-action" data-partial-close="25">25%</button>
                     <button class="position-action" data-partial-close="50">50%</button>
@@ -1353,6 +1406,13 @@
                 </div>
             </div>
             <div id="mobilePositionEmpty" class="mobile-order-empty hidden">Открытой позиции нет</div>
+            <div class="border-t border-bybit-border pt-2 mt-2">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <div class="text-[9px] font-black text-bybit-muted">ИСТОРИЯ ПОЗИЦИЙ</div>
+                    <button id="mobileRefreshPositionHistory" class="position-action">↻</button>
+                </div>
+                <div id="mobilePositionHistoryList" class="position-history-list"><div class="mobile-order-empty">Загрузка истории...</div></div>
+            </div>
         </div>
         <div id="mobileOrdersView" class="drawer-scroll p-2.5 space-y-1.5 hidden">
             <div class="flex items-center justify-between gap-2">
@@ -2033,6 +2093,7 @@
                     });
                 }
             });
+            drawOrderBookWalls();
         }
 
         function updateOHLCTooltip(c) {
@@ -2466,6 +2527,8 @@
 
         // ===== Stage 4 Trading UI =====
         const tradeState = { instrument: null, tradingEnabled: false, position: null, busy: false, positionBusy: false };
+        let positionHistoryCache = [];
+        let positionClosePopupTimer = null;
         let latestSrZones = [];
         const tradeRiskState = {
             side: 'Buy',
@@ -2560,22 +2623,38 @@
         }
 
         function renderPosition(pos) {
+            const previous = tradeState.position;
+            const hadPrevious = !!(previous && Number(previous.size) > 0);
+            const has = !!(pos && Number(pos.size) > 0);
             tradeState.position = pos;
-            const has = pos && Number(pos.size) > 0;
             const empty = document.getElementById('mobilePositionEmpty');
             if (empty) empty.classList.toggle('hidden', has);
             if (has) {
                 const pnl = Number(pos.unrealisedPnl || 0);
+                const mark = Number(pos.markPrice || livePrice || 0);
+                const avg = Number(pos.avgPrice || 0);
+                const notional = Number(pos.positionValue || (mark * Number(pos.size || 0)) || 0);
+                const leverage = Number(pos.leverage || 0);
+                const margin = Number(pos.positionIM || (notional && leverage ? notional / leverage : 0) || 0);
+                const liq = Number(pos.liqPrice || 0);
+                const realized = Number(pos.curRealisedPnl || pos.cumRealisedPnl || 0);
+                const roi = margin > 0 ? (pnl / margin * 100) : 0;
                 const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
                 set('mobilePositionPnl', `${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT`);
                 const pnlEl = document.getElementById('mobilePositionPnl');
                 if (pnlEl) pnlEl.className = 'text-[10px] font-black font-mono ' + (pnl >= 0 ? 'text-bybit-green' : 'text-bybit-red');
                 set('mobilePosSize', `${pos.side === 'Buy' ? 'LONG' : 'SHORT'} ${pos.size}`);
-                set('mobilePosAvg', formatPrice(pos.avgPrice));
-                set('mobilePosMark', formatPrice(pos.markPrice || livePrice || 0));
+                set('mobilePosAvg', formatPrice(avg));
+                set('mobilePosMark', formatPrice(mark));
                 set('mobilePosTp', Number(pos.takeProfit || 0) ? formatPrice(pos.takeProfit) : '—');
                 set('mobilePosSl', Number(pos.stopLoss || 0) ? formatPrice(pos.stopLoss) : '—');
                 set('mobilePosTs', Number(pos.trailingStop || 0) ? formatPrice(pos.trailingStop) : '—');
+                set('mobilePosValue', notional > 0 ? `${formatVolumeUSD(notional)}` : '—');
+                set('mobilePosLeverage', leverage > 0 ? `${leverage}x` : '—');
+                set('mobilePosLiq', liq > 0 ? formatPrice(liq) : '—');
+                set('mobilePosRealized', `${realized >= 0 ? '+' : ''}${realized.toFixed(3)}`);
+                set('mobilePosMargin', margin > 0 ? `${margin.toFixed(3)} USDT` : '—');
+                set('mobilePosRoi', `${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%`);
                 const tpIn = document.getElementById('mobilePosTPInput');
                 const slIn = document.getElementById('mobilePosSLInput');
                 if (tpIn && document.activeElement !== tpIn) tpIn.value = Number(pos.takeProfit || 0) ? formatPrice(pos.takeProfit) : '';
@@ -2591,8 +2670,7 @@
                 const mark = Number(pos.markPrice || livePrice || 0);
                 const tp = Number(pos.takeProfit || 0);
                 const sl = Number(pos.stopLoss || 0);
-                const riskMeta = `${tp ? ` · TP ${formatPrice(tp)}` : ''}${sl ? ` · SL ${formatPrice(sl)}` : ''}`;
-                text = `${sideLabel} ${pos.size} @ ${formatPrice(pos.avgPrice)} · ${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT${riskMeta}`;
+                text = `${sideLabel} ${pos.size} @ ${formatPrice(pos.avgPrice)} · ${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT`;
                 html = `<span class="side ${sideCls}">${sideLabel}</span><span class="meta">${pos.size} @ ${formatPrice(pos.avgPrice)} · Mark ${formatPrice(mark)}${tp ? ` · TP ${formatPrice(tp)}` : ''}${sl ? ` · SL ${formatPrice(sl)}` : ''}</span><span class="pnl ${cls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(3)} USDT</span>`;
             }
             ['desktop','mobile'].forEach(p => {
@@ -2604,10 +2682,75 @@
             });
             const closeBtn = document.getElementById('mobileCloseBtn');
             if (closeBtn) closeBtn.disabled = !has || tradeState.busy || !tradeState.tradingEnabled;
+            if (hadPrevious && !has && String(previous?.symbol || currentSymbol).toUpperCase() === currentSymbol.toUpperCase()) scheduleClosedPositionPopup(previous);
             syncTradeChartLevels();
             updateTradePreview();
         }
 
+        function updatePositionLive(price) {
+            const pos = tradeState.position;
+            if (!pos || Number(pos.size) <= 0 || !(price > 0)) return;
+            const avg = Number(pos.avgPrice || 0);
+            const size = Number(pos.size || 0);
+            const pnl = pos.side === 'Buy' ? (price - avg) * size : (avg - price) * size;
+            const notional = price * size;
+            const leverage = Number(pos.leverage || 0);
+            const margin = Number(pos.positionIM || (notional && leverage ? notional / leverage : 0) || 0);
+            const roi = margin > 0 ? pnl / margin * 100 : 0;
+            const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+            set('mobilePosMark', formatPrice(price));
+            set('mobilePositionPnl', `${pnl>=0?'+':''}${pnl.toFixed(3)} USDT`);
+            set('mobilePosValue', formatVolumeUSD(notional));
+            set('mobilePosRoi', `${roi>=0?'+':''}${roi.toFixed(1)}%`);
+            const pnlEl=document.getElementById('mobilePositionPnl');
+            if(pnlEl) pnlEl.className='text-[10px] font-black font-mono '+(pnl>=0?'text-bybit-green':'text-bybit-red');
+        }
+
+        async function scheduleClosedPositionPopup(previous) {
+            if (positionClosePopupTimer) clearTimeout(positionClosePopupTimer);
+            positionClosePopupTimer = setTimeout(async () => {
+                try {
+                    const r = await fetch(`/api/closed-pnl?symbol=${encodeURIComponent(currentSymbol)}`, {cache:'no-store'});
+                    const j = await r.json();
+                    const rows = j.result?.list || [];
+                    if (rows.length) showClosedPositionPopup(rows[0], previous);
+                    await refreshPositionHistory();
+                } catch (e) {
+                    showClosedPositionPopup({symbol:currentSymbol, side:previous?.side, qty:previous?.size, avgEntryPrice:previous?.avgPrice, avgExitPrice:previous?.markPrice || livePrice, closedPnl:previous?.unrealisedPnl || 0}, previous);
+                }
+            }, 450);
+        }
+
+        function showClosedPositionPopup(row, previous) {
+            const modal=document.getElementById('positionClosedModal'); if(!modal) return;
+            const pnl=Number(row?.closedPnl || 0);
+            const fees=Number(row?.openFee || 0)+Number(row?.closeFee || 0);
+            const set=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
+            set('closedModalTitle', `${currentSymbol} ${row?.side==='Buy'?'LONG':'SHORT'}`);
+            set('closedModalPnl', `${pnl>=0?'+':''}${pnl.toFixed(4)} USDT`);
+            set('closedModalQty', row?.closedSize || row?.qty || previous?.size || '—');
+            set('closedModalEntry', Number(row?.avgEntryPrice || previous?.avgPrice || 0) ? formatPrice(row.avgEntryPrice || previous.avgPrice) : '—');
+            set('closedModalExit', Number(row?.avgExitPrice || 0) ? formatPrice(row.avgExitPrice) : '—');
+            set('closedModalFees', fees ? `${fees.toFixed(4)} USDT` : '—');
+            const pnlEl=document.getElementById('closedModalPnl'); if(pnlEl) pnlEl.style.color=pnl>=0?'#0ecb81':'#f6465d';
+            modal.classList.remove('hidden');
+        }
+
+        async function refreshPositionHistory() {
+            const list=document.getElementById('mobilePositionHistoryList'); if(!list) return;
+            try {
+                const r=await fetch(`/api/closed-pnl?symbol=${encodeURIComponent(currentSymbol)}`,{cache:'no-store'});
+                const j=await r.json(); if(!r.ok||!j.ok) throw new Error(j.error||'Ошибка истории');
+                const rows=j.result?.list||[]; positionHistoryCache=rows;
+                if(!rows.length){list.innerHTML='<div class="mobile-order-empty">История пуста</div>';return;}
+                list.innerHTML=rows.slice(0,10).map(x=>{
+                    const pnl=Number(x.closedPnl||0), win=pnl>=0;
+                    const side=x.side==='Buy'?'LONG':'SHORT';
+                    const t=x.updatedTime?new Date(Number(x.updatedTime)).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+                    return `<div class="position-history-row ${win?'win':'loss'}"><div><span class="k">ПОЗИЦИЯ</span><span class="v ${x.side==='Buy'?'text-bybit-green':'text-bybit-red'}">${side} ${x.closedSize||x.qty||''}</span></div><div><span class="k">ENTRY → EXIT</span><span class="v">${Number(x.avgEntryPrice||0)?formatPrice(x.avgEntryPrice):'—'} → ${Number(x.avgExitPrice||0)?formatPrice(x.avgExitPrice):'—'}</span></div><div><span class="k">PNL · ВРЕМЯ</span><span class="v ${win?'text-bybit-green':'text-bybit-red'}">${pnl>=0?'+':''}${pnl.toFixed(3)} · ${t}</span></div></div>`;
+                }).join('');
+            } catch(e){ list.innerHTML=`<div class="mobile-order-empty">Ошибка: ${e.message}</div>`; }
+        }
         function previewPrice() {
             const e = tradeEls('mobile');
             const type = e.orderType?.value || 'Market';
@@ -3305,12 +3448,15 @@
             drawer.classList.remove('hidden'); pos?.classList.toggle('hidden',!isPos); ord?.classList.toggle('hidden',isPos);
             pt?.classList.toggle('active',isPos); ot?.classList.toggle('active',!isPos);
             if (!isPos) refreshMobileOrders();
-            if (isPos) refreshPosition();
+            if (isPos) { refreshPosition(); refreshPositionHistory(); }
             requestAnimationFrame(()=>resizeAllCharts());
         }
         function closeMobileTool() { const d=document.getElementById('mobileToolDrawer'); if(d) d.classList.add('hidden'); requestAnimationFrame(()=>resizeAllCharts()); }
 
         function bindTradingUI() {
+            document.getElementById('positionClosedModal')?.addEventListener('click', e => { if (e.target.id === 'positionClosedModal') e.currentTarget.classList.add('hidden'); });
+            document.getElementById('closedModalHistoryBtn')?.addEventListener('click', () => { document.getElementById('positionClosedModal')?.classList.add('hidden'); openMobileTool('position'); });
+            document.getElementById('mobileRefreshPositionHistory')?.addEventListener('click', refreshPositionHistory);
             const d=tradeEls('desktop'), m=tradeEls('mobile');
             [d,m].forEach((e,i)=>{
                 if(!e.margin) return;
@@ -3613,12 +3759,13 @@
             asks.forEach(a => { totalAsksUSD += Number(a[0]) * Number(a[1]); });
             computeDominanceRatio(totalBidsUSD, totalAsksUSD);
 
+            const MIN_WALL_USD = 15000;
             const processOrders = (orders, type) => {
                 const items = orders.map(o => {
                     const price = Number(o[0]);
                     const size = Number(o[1]);
                     return { price, size, usdValue: price * size, type };
-                });
+                }).filter(x => x.usdValue >= MIN_WALL_USD);
                 const threshold = currentPrice * 0.003;
                 const clusters = [];
                 items.forEach(item => {
@@ -3636,7 +3783,7 @@
                 clusters.sort((a,b) => b.usdValue - a.usdValue);
                 return clusters.slice(0,3);
             };
-            detectedWalls = [...processOrders(asks, 'sell'), ...processOrders(bids, 'buy')];
+            detectedWalls = [...processOrders(asks, 'sell'), ...processOrders(bids, 'buy')].sort((a,b)=>b.usdValue-a.usdValue).slice(0,6);
             drawOrderBookWalls();
             renderOrderbookWallsPanel();
         }
@@ -3773,25 +3920,41 @@
         }
 
         function drawOrderBookWalls() {
-            orderbookPriceLines.forEach(line => {
-                try { candleSeries.removePriceLine(line); } catch(e){}
-            });
+            orderbookPriceLines.forEach(line => { try { candleSeries.removePriceLine(line); } catch(e){} });
             orderbookPriceLines = [];
-
+            const overlay = document.getElementById('orderbookWallBandOverlay');
+            if (overlay) overlay.innerHTML = '';
             if (!settings.showOrderbook || !detectedWalls || detectedWalls.length === 0) return;
-
+            const maxUsd = Math.max(20000, ...detectedWalls.map(w => Number(w.usdValue)||0));
             detectedWalls.forEach(wall => {
                 const isBuy = wall.type === 'buy';
-                const formattedVol = formatVolumeUSD(wall.usdValue);
+                const usd = Number(wall.usdValue)||0;
+                const strength = Math.min(1, Math.max(0, (usd - 15000) / 10000));
                 const line = candleSeries.createPriceLine({
                     price: wall.price,
-                    color: isBuy ? '#0ecb81' : '#f6465d',
-                    lineWidth: 2,
+                    color: isBuy ? 'rgba(14,203,129,.48)' : 'rgba(246,70,93,.48)',
+                    lineWidth: 1,
                     lineStyle: LightweightCharts.LineStyle.Solid,
-                    axisLabelVisible: true,
-                    title: `${isBuy ? '🟢 BW' : '🔴 SW'} (${formattedVol})`,
+                    axisLabelVisible: false,
+                    title: ''
                 });
                 orderbookPriceLines.push(line);
+                if (overlay && candleSeries?.priceToCoordinate) {
+                    const y = candleSeries.priceToCoordinate(Number(wall.price));
+                    if (y != null && Number.isFinite(y)) {
+                        const band = document.createElement('div');
+                        band.className='wall-band';
+                        const h = 8 + Math.round(strength * 10);
+                        const alpha = (0.08 + strength * 0.16).toFixed(2);
+                        const rgb = isBuy ? '14,203,129' : '246,70,93';
+                        band.style.top = `${y}px`;
+                        band.style.height = `${h}px`;
+                        band.style.background = `rgba(${rgb},${alpha})`;
+                        band.style.borderColor = `rgba(${rgb},${(0.18+strength*0.28).toFixed(2)})`;
+                        band.title = `${isBuy ? 'BW' : 'SW'} ${formatVolumeUSD(usd)}`;
+                        overlay.appendChild(band);
+                    }
+                }
             });
         }
 
@@ -3894,6 +4057,7 @@
         function updateLivePrice(price, changePct = null) {
             if (!Number.isFinite(price) || price <= 0) return;
             livePrice = price;
+            updatePositionLive(price);
             document.getElementById('lastPrice').innerText = formatPrice(price);
             renderDynamicRiskNow();
             updateTradePreview();

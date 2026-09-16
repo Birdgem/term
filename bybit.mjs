@@ -93,6 +93,12 @@ export async function getOpenOrders(symbol = '') {
   return request('GET', '/v5/order/realtime', params);
 }
 
+export async function getClosedPnl(symbol = '') {
+  const params = { category: 'linear', limit: 50 };
+  if (symbol) params.symbol = symbol.toUpperCase();
+  return request('GET', '/v5/position/closed-pnl', params);
+}
+
 export async function getOrderHistory(symbol = '') {
   const params = { category: 'linear', limit: 50 };
   if (symbol) params.symbol = symbol.toUpperCase(); else params.settleCoin = 'USDT';

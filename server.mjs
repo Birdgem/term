@@ -7,7 +7,7 @@ import { gzipSync } from 'node:zlib';
 import crypto from 'node:crypto';
 import {
   getConfig, getPrivateWsAuth, getWalletBalance, getPublicTicker, getPosition, getOpenOrders, getOrderHistory,
-  getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition, closePartialPosition, applyMultiTakeProfits, moveStopToBreakeven
+  getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition, closePartialPosition, applyMultiTakeProfits, moveStopToBreakeven, getClosedPnl
 } from './bybit.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,7 +16,7 @@ const HOST = '0.0.0.0';
 const TERMINAL_ACCESS_TOKEN = String(process.env.TERMINAL_ACCESS_TOKEN || '').trim();
 const PROTECTED_PATHS = new Set([
   '/api/config', '/api/ws-auth', '/api/account', '/account', '/api/position', '/position',
-  '/api/orders', '/orders', '/api/order-history', '/order-history', '/api/leverage', '/api/order',
+  '/api/orders', '/orders', '/api/order-history', '/order-history', '/api/closed-pnl', '/closed-pnl', '/api/leverage', '/api/order',
   '/api/cancel-order', '/api/cancel-all', '/api/trading-stop', '/api/multi-tp', '/api/multi-tp-be',
   '/api/close-partial', '/api/close-position'
 ]);
@@ -109,6 +109,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/order-history' || url.pathname === '/order-history') {
       const symbol = url.searchParams.get('symbol') || ''; const data = await getOrderHistory(symbol);
+      return json(res, 200, { ok: true, result: data.result });
+    }
+    if (url.pathname === '/api/closed-pnl' || url.pathname === '/closed-pnl') {
+      const symbol = url.searchParams.get('symbol') || ''; const data = await getClosedPnl(symbol);
       return json(res, 200, { ok: true, result: data.result });
     }
     if (url.pathname === '/api/instrument' || url.pathname === '/instrument') {
