@@ -109,7 +109,16 @@ export async function setLeverage(symbol, leverage) {
   assertTradingEnabled();
   const lev = String(leverage);
   if (!symbol || !/^\d+(?:\.\d+)?$/.test(lev) || Number(lev) <= 0) throw new Error('Invalid symbol or leverage');
-  return request('POST', '/v5/position/set-leverage', { category: 'linear', symbol: symbol.toUpperCase(), buyLeverage: lev, sellLeverage: lev });
+  try {
+    return await request('POST', '/v5/position/set-leverage', { category: 'linear', symbol: symbol.toUpperCase(), buyLeverage: lev, sellLeverage: lev });
+  } catch (error) {
+    // Bybit 110043 means the requested leverage is already set. Treat it as a no-op,
+    // so opening the order can continue instead of showing a false fatal error.
+    if (String(error?.message || '').includes('Bybit API 110043')) {
+      return { retCode: 0, retMsg: 'leverage already set', result: {} };
+    }
+    throw error;
+  }
 }
 
 export async function placeOrder(order) {

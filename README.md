@@ -1,6 +1,6 @@
-# Bybit Scalper Terminal — Stage 5.19
+# Bybit Scalper Terminal — Stage 5.20.2
 
-Mobile-first dedicated Scalp Mode with terminal access protection.
+Mobile-first dedicated Scalp Mode with terminal access protection and balance display.
 
 ## Security
 
@@ -32,3 +32,8 @@ If the token is compromised, rotate `TERMINAL_ACCESS_TOKEN` in Render and enter 
 `TRADING_ENABLED=false` remains the safe default. Only enable it when you deliberately want live order actions.
 
 Existing realtime feeds, Multi-TP, AUTO S/R, position manager, Scalp Mode, and mobile UI are preserved.
+
+
+## Stage 5.20.2 hotfix
+
+Bybit error 110043 (leverage not modified because the requested leverage is already active) is treated as a successful no-op. The order flow continues normally.
