@@ -763,6 +763,7 @@
                     <button class="trade-quick" data-risk="-1">SL 1%</button>
                     <button class="trade-quick" data-rr="2">RR 1:2</button>
                     <button class="trade-quick" data-rr="3">RR 1:3</button>
+                    <button id="mobileAutoSR" class="trade-quick border-bybit-green/30">AUTO S/R</button>
                 </div>
                 <div class="mobile-trade-grid">
                     <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
@@ -1682,6 +1683,7 @@
 
         // ===== Stage 4 Trading UI =====
         const tradeState = { instrument: null, tradingEnabled: false, position: null, busy: false, positionBusy: false };
+        let latestSrZones = [];
         const tradeRiskState = {
             side: 'Buy',
             mode: 'manual', // manual | rr | tp | sl
@@ -1909,6 +1911,7 @@
                 if (tradeRiskState.mode === 'rr' && tradeRiskState.rrRatio !== null) parts.push(`RR 1:${Number(tradeRiskState.rrRatio).toFixed(2)} · риск ${Number(tradeRiskState.rrRiskPct).toFixed(2)}%`);
                 else if (tradeRiskState.mode === 'tp' && tradeRiskState.tpPct !== null) parts.push(`TP ${Number(tradeRiskState.tpPct)}%`);
                 else if (tradeRiskState.mode === 'sl' && tradeRiskState.slPct !== null) parts.push(`SL ${Number(tradeRiskState.slPct)}%`);
+                else if (tradeRiskState.mode === 'sr') parts.push('AUTO S/R');
                 stateEl.textContent = parts.length ? `Динамически: ${parts.join(' · ')}` : 'TP/SL вручную';
                 stateEl.className = 'text-[8px] ml-1 truncate ' + (parts.length ? 'text-bybit-yellow' : 'text-bybit-muted');
             }
@@ -1956,6 +1959,51 @@
             el.textContent = `RR 1:${rr.toFixed(2)}`;
             el.title = `Reward ${rewardPnl ? '+' + rewardPnl.toFixed(3) + ' USDT' : formatPrice(reward)} · Risk ${riskPnl ? riskPnl.toFixed(3) + ' USDT' : formatPrice(risk)}`;
             el.className = 'text-[8px] font-black shrink-0 ' + (rr >= 2 ? 'text-bybit-green' : rr >= 1.5 ? 'text-bybit-yellow' : 'text-bybit-red');
+        }
+
+        function setAutoSRPreset() {
+            const price = previewPrice();
+            const side = tradeRiskState.side;
+            if (!(price > 0) || !Array.isArray(latestSrZones) || !latestSrZones.length) {
+                setTradeStatus('AUTO S/R: уровни ещё не рассчитаны', 'muted');
+                return;
+            }
+            const resistances = latestSrZones.filter(z => z.type === 'resistance' && Number(z.avgPrice) > price).sort((a,b) => Number(a.avgPrice) - Number(b.avgPrice));
+            const supports = latestSrZones.filter(z => z.type === 'support' && Number(z.avgPrice) < price).sort((a,b) => Number(b.avgPrice) - Number(a.avgPrice));
+            if (!resistances.length || !supports.length) {
+                setTradeStatus('AUTO S/R: недостаточно уровней вокруг цены', 'muted');
+                return;
+            }
+            const resistance = Number(resistances[0].avgPrice);
+            const support = Number(supports[0].avgPrice);
+            const tick = Number(tradeState.instrument?.priceFilter?.tickSize || 0);
+            const buffer = Math.max(price * 0.0005, tick * 2);
+            let tp, sl;
+            if (side === 'Buy') {
+                tp = resistance - buffer;
+                sl = support - buffer;
+            } else {
+                tp = support + buffer;
+                sl = resistance + buffer;
+            }
+            tp = Number(normalizePrice(tp));
+            sl = Number(normalizePrice(sl));
+            const valid = side === 'Buy' ? (tp > price && sl < price) : (tp < price && sl > price);
+            if (!valid) {
+                setTradeStatus('AUTO S/R: уровни слишком близко к текущей цене', 'muted');
+                return;
+            }
+            tradeRiskState.mode = 'sr';
+            tradeRiskState.rrRatio = null;
+            tradeRiskState.tpPct = null;
+            tradeRiskState.slPct = null;
+            tradeRiskState.entryPrice = price;
+            tradeRiskState.tpPrice = tp;
+            tradeRiskState.slPrice = sl;
+            ensureDynamicRiskTicker();
+            renderDynamicRiskNow();
+            updateTradePreview();
+            setTradeStatus(`AUTO S/R: TP ${formatPrice(tp)} · SL ${formatPrice(sl)}`, 'muted');
         }
 
         function setRiskRewardPreset(ratio) {
@@ -2362,6 +2410,7 @@
                 fillRiskPreset(v, v >= 0 ? 'tp' : 'sl');
             }));
             document.querySelectorAll('[data-rr]').forEach(btn=>btn.addEventListener('click',()=>setRiskRewardPreset(Number(btn.dataset.rr))));
+            document.getElementById('mobileAutoSR')?.addEventListener('click', setAutoSRPreset);
             document.getElementById('mobilePreviewLong')?.addEventListener('click',()=>setPreviewSide('Buy'));
             document.getElementById('mobilePreviewShort')?.addEventListener('click',()=>setPreviewSide('Sell'));
 
@@ -3152,6 +3201,7 @@
                 srZones = findSupportResistance(rawCandles);
                 drawSRLines(srZones);
             }
+            latestSrZones = srZones.slice();
             renderSRPanel(srZones);
 
             let markers = [];
