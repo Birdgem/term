@@ -1031,6 +1031,7 @@
             <div class="flex items-center gap-2 shrink-0">
                 <span class="text-[10px] font-bold text-bybit-yellow uppercase tracking-wider">TRADE</span>
                 <span id="desktopTradeMode" class="text-[9px] font-mono text-bybit-muted border border-bybit-border rounded px-1.5 py-0.5">LIVE OFF</span>
+                <span id="desktopBalance" class="text-[9px] font-mono text-bybit-text border border-bybit-border rounded px-1.5 py-0.5">BAL —</span>
             </div>
             <div class="trade-field w-24"><label class="block text-[9px] text-bybit-muted mb-0.5">Маржа USDT</label><input id="desktopMargin" class="trade-input" type="number" min="0" step="0.01" value="5"></div>
             <div class="trade-field w-20"><label class="block text-[9px] text-bybit-muted mb-0.5">Плечо</label><select id="desktopLeverage" class="trade-input"><option>1</option><option>2</option><option>3</option><option>5</option><option>10</option><option>20</option></select></div>
@@ -1216,6 +1217,7 @@
                 <div class="mobile-trade-topline-left">
                     <span class="text-[10px] font-black text-bybit-yellow">TRADE</span>
                     <span id="mobileTradeMode" class="text-[8px] font-mono text-bybit-muted border border-bybit-border rounded px-1">LIVE OFF</span>
+                    <span id="mobileBalance" class="text-[8px] font-mono text-bybit-text border border-bybit-border rounded px-1">BAL —</span>
                 </div>
                 <div class="mobile-trade-topline-right">
                     <button id="mobileTradeToggleBtn" class="mobile-trade-toggle bg-bybit-bg border border-bybit-border text-bybit-muted" title="Свернуть торговую панель">
@@ -2960,6 +2962,37 @@
             updateTradePreview();
         }
 
+        function formatBalance(value) {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return '—';
+            if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+            if (Math.abs(n) >= 1000) return (n / 1000).toFixed(2) + 'K';
+            if (Math.abs(n) >= 100) return n.toFixed(2);
+            if (Math.abs(n) >= 1) return n.toFixed(2);
+            return n.toFixed(4);
+        }
+
+        async function loadBalance() {
+            try {
+                const r = await fetch('/api/account', {cache:'no-store'});
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const j = await r.json();
+                const account = j.result?.list?.[0] || {};
+                const usdt = (account.coin || []).find(c => String(c.coin || '').toUpperCase() === 'USDT');
+                const equity = Number(account.totalEquity);
+                const wallet = Number(account.totalWalletBalance);
+                const coinWallet = Number(usdt?.walletBalance);
+                const value = Number.isFinite(equity) && equity > 0 ? equity : (Number.isFinite(wallet) && wallet > 0 ? wallet : coinWallet);
+                const text = Number.isFinite(value) ? `BAL ${formatBalance(value)} USDT` : 'BAL —';
+                ['desktopBalance','mobileBalance'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = text;
+                });
+            } catch (err) {
+                console.warn('Balance refresh failed:', err);
+            }
+        }
+
         async function loadTradeConfig() {
             multiTpState.beMoved = false;
             try {
@@ -3349,11 +3382,12 @@
             if (mobileTradeToggleBtn) mobileTradeToggleBtn.addEventListener('click', () => setMobileTradeCollapsed(!mobileTradeDock.classList.contains('collapsed')));
             if (window.innerWidth < 768) setMobileTradeCollapsed(savedCollapsed);
 
-            updateLimitVisibility(); loadTradeConfig(); refreshPosition(); setPreviewSide('Buy'); ensureDynamicRiskTicker(); renderDynamicRiskNow(); updateTradePreview();
+            updateLimitVisibility(); loadTradeConfig(); loadBalance(); refreshPosition(); setPreviewSide('Buy'); ensureDynamicRiskTicker(); renderDynamicRiskNow(); updateTradePreview();
             connectPrivateWebSocket();
             setInterval(fetchLongShortRatio, 15000);
             setInterval(fetchBybitTickers, 30000);
             setInterval(loadTradeConfig, 300000);
+            setInterval(loadBalance, 30000);
         }
 
         function setupOrderbookAutoRefresh() {
