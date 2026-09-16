@@ -877,6 +877,75 @@
             #desktopTradePanel, aside { display:none !important; }
         }
 
+
+        /* ===== Stage 5.26 — Smooth Mobile Scalper UI ===== */
+        @media (max-width:767px) {
+            /* Keep the sheet visually stable while the chart paints underneath it. */
+            #mobileTradeDock {
+                background:rgba(13,17,23,.84) !important;
+                backdrop-filter:blur(7px) !important;
+                -webkit-backdrop-filter:blur(7px) !important;
+                will-change:transform;
+                transform:translateZ(0);
+                contain:layout paint style;
+            }
+            #mobileTradeDock .mobile-trade-header { padding:5px 6px 4px !important; gap:4px !important; }
+            #mobileTradeDock .mobile-trade-topline { min-height:22px !important; }
+            #mobileTradeDock .mobile-trade-statusline { min-height:34px !important; gap:5px !important; }
+            #mobileTradeDock .mobile-strength-strip { min-height:31px !important; padding:4px 7px !important; }
+            #mobileTradeDock .mobile-trade-body {
+                max-height:calc(58svh - 158px) !important;
+                overflow-y:auto !important;
+                overscroll-behavior:contain;
+                scrollbar-width:none;
+                -webkit-overflow-scrolling:touch;
+                padding:1px 1px 3px !important;
+            }
+            #mobileTradeDock .mobile-trade-body::-webkit-scrollbar { display:none; }
+            #mobileTradeDock .mobile-trade-row { gap:5px !important; }
+            #mobileTradeDock .trade-input {
+                height:38px !important; min-height:38px !important;
+                padding:5px 8px !important; border-radius:8px !important;
+                font-size:12px !important;
+                background:rgba(13,17,23,.68) !important;
+            }
+            #mobileTradeDock .trade-quick {
+                min-height:27px !important; height:27px !important;
+                padding:3px 7px !important; border-radius:7px !important;
+                font-size:9px !important;
+                background:rgba(13,17,23,.62) !important;
+            }
+            #mobileTradeDock .trade-preview {
+                min-height:40px !important; padding:5px 6px !important;
+                background:rgba(13,17,23,.62) !important;
+            }
+            #mobileTradeDock .trade-preview .k { font-size:7px !important; }
+            #mobileTradeDock .trade-preview .v { font-size:9px !important; }
+            #mobileTradeDock .mobile-entry-footer {
+                display:grid;
+                grid-template-columns:1fr 1fr;
+                gap:5px;
+                padding:5px 2px 1px;
+                border-top:1px solid rgba(48,54,61,.65);
+                background:rgba(13,17,23,.48);
+                position:relative;
+                z-index:5;
+            }
+            #mobileTradeDock .mobile-entry-footer .trade-btn {
+                height:43px !important; min-height:43px !important;
+                border-radius:9px !important;
+                font-size:13px !important;
+                font-weight:900 !important;
+            }
+            #mobileTradeDock .mobile-entry-footer .trade-btn:active { transform:scale(.985); }
+            #mobileTradeDock.collapsed .mobile-entry-footer { display:none; }
+            /* Less expensive shadow than the old large blurred sheet shadow. */
+            #mobileTradeDock { box-shadow:0 -7px 20px rgba(0,0,0,.38) !important; }
+            /* The chart gets its own compositor layer; do not animate layout around it. */
+            #priceChartContainer { transform:translateZ(0); contain:layout paint; }
+            #priceChartContainer .tv-lightweight-charts { transform:translateZ(0); }
+        }
+
 </style>
 </head>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
@@ -1375,11 +1444,11 @@
                         <button id="mobileApplyMultiTp" class="trade-quick px-2">APPLY</button>
                     </div>
                 </div>
-                <div class="mobile-trade-grid">
-                    <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
-                    <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
-                </div>
                 <div id="mobileTradeStatus" class="trade-status text-[9px] font-mono text-bybit-muted truncate"></div>
+            </div>
+            <div class="mobile-entry-footer">
+                <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
+                <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
             </div>
         </div>
     </div>
@@ -1718,8 +1787,8 @@
         // Real-time input can be much faster than a phone screen needs.
         // Keep receiving the feed, but throttle expensive UI work.
         const RT = {
-            priceMs: 200,       // 5 UI price updates/sec
-            orderbookMs: 300,   // ~3.3 orderbook recalculations/sec
+            priceMs: 60,        // smooth realtime price paint (~16 fps)
+            orderbookMs: 250,   // keep depth responsive without repainting every tick
             overlaysMs: 2000,   // S/R + pattern recalculation every 2 sec
             indicatorsMs: 2000, // RSI/MACD every 2 sec
             lastPricePaint: 0,
@@ -1938,31 +2007,51 @@
             } catch (e) { return null; }
         }
 
+        function updatePreviewRiskLines() {
+            if (!candleSeries) return;
+            const e = tradeEls('mobile');
+            const tp = Number(tradeRiskState.tpPrice || e?.tp?.value || 0);
+            const sl = Number(tradeRiskState.slPrice || e?.sl?.value || 0);
+            const setLine = (key, price, title, color, style, width=1) => {
+                const n = Number(price || 0);
+                const existing = previewRiskLines[key];
+                if (n > 0) {
+                    if (existing && existing.applyOptions) {
+                        existing.applyOptions({price:n, title, color, lineWidth:width, lineStyle:style, axisLabelVisible:true});
+                    } else {
+                        previewRiskLines[key] = addTradePriceLine(n, title, color, style, width);
+                    }
+                } else if (existing) {
+                    removePriceLineSafe(existing); previewRiskLines[key] = null;
+                }
+            };
+            setLine('tp', multiTpState.enabled ? 0 : tp, 'TP PREVIEW', '#0ecb81', LightweightCharts.LineStyle.Dotted, 1);
+            setLine('sl', sl, 'SL PREVIEW', '#f6465d', LightweightCharts.LineStyle.Dotted, 1);
+            [1,2,3].forEach(i => setLine('tp'+i, multiTpState.enabled ? Number(multiTpState.levels[i-1] || 0) : 0, 'TP'+i+' PREVIEW', '#0ecb81', LightweightCharts.LineStyle.Dotted, i===1?2:1));
+        }
+
         function syncTradeChartLevels() {
             if (!candleSeries) return;
-            Object.values(positionLevelLines).forEach(removePriceLineSafe);
-            Object.values(previewRiskLines).forEach(removePriceLineSafe);
-            positionLevelLines = { entry: null, tp: null, sl: null };
-            previewRiskLines = { tp: null, sl: null, tp1: null, tp2: null, tp3: null };
-
             const pos = tradeState?.position;
             if (pos && Number(pos.size) > 0) {
+                // Position levels are stable after entry. Update them only when the
+                // exchange sends a new position/risk state, never on every market tick.
                 const isLong = pos.side === 'Buy';
-                const side = isLong ? 'LONG' : 'SHORT';
-                positionLevelLines.entry = addTradePriceLine(pos.avgPrice, `ENTRY ${side}`, isLong ? '#0ecb81' : '#f6465d', LightweightCharts.LineStyle.Solid, 2);
-                if (Number(pos.takeProfit) > 0) positionLevelLines.tp = addTradePriceLine(pos.takeProfit, 'TP', '#0ecb81', LightweightCharts.LineStyle.Dashed, 1);
-                if (Number(pos.stopLoss) > 0) positionLevelLines.sl = addTradePriceLine(pos.stopLoss, 'SL', '#f6465d', LightweightCharts.LineStyle.Dashed, 1);
+                const upsert = (key, price, title, color, style, width=1) => {
+                    const n = Number(price || 0), existing = positionLevelLines[key];
+                    if (n > 0) {
+                        if (existing && existing.applyOptions) existing.applyOptions({price:n,title,color,lineWidth:width,lineStyle:style,axisLabelVisible:true});
+                        else positionLevelLines[key] = addTradePriceLine(n,title,color,style,width);
+                    } else if (existing) { removePriceLineSafe(existing); positionLevelLines[key]=null; }
+                };
+                upsert('entry', pos.avgPrice, `ENTRY ${isLong ? 'LONG' : 'SHORT'}`, isLong ? '#0ecb81' : '#f6465d', LightweightCharts.LineStyle.Solid, 2);
+                upsert('tp', pos.takeProfit, 'TP', '#0ecb81', LightweightCharts.LineStyle.Dashed, 1);
+                upsert('sl', pos.stopLoss, 'SL', '#f6465d', LightweightCharts.LineStyle.Dashed, 1);
+                Object.keys(previewRiskLines).forEach(k=>{ if(previewRiskLines[k]){removePriceLineSafe(previewRiskLines[k]); previewRiskLines[k]=null;} });
                 return;
             }
-
-            const e = tradeEls('mobile');
-            const tp = Number(e?.tp?.value || 0);
-            const sl = Number(e?.sl?.value || 0);
-            if (tp > 0 && !multiTpState.enabled) previewRiskLines.tp = addTradePriceLine(tp, 'TP PREVIEW', '#0ecb81', LightweightCharts.LineStyle.Dotted, 1);
-            if (sl > 0) previewRiskLines.sl = addTradePriceLine(sl, 'SL PREVIEW', '#f6465d', LightweightCharts.LineStyle.Dotted, 1);
-            if (multiTpState.enabled) {
-                [1,2,3].forEach(i => { const v=Number(multiTpState.levels[i-1]||0); if(v>0) previewRiskLines['tp'+i]=addTradePriceLine(v, 'TP'+i+' PREVIEW', '#0ecb81', LightweightCharts.LineStyle.Dotted, i===1?2:1); });
-            }
+            Object.keys(positionLevelLines).forEach(k=>{ if(positionLevelLines[k]){removePriceLineSafe(positionLevelLines[k]); positionLevelLines[k]=null;} });
+            updatePreviewRiskLines();
         }
 
         function initChart() {
@@ -2943,6 +3032,7 @@
                 previewQty(),
                 tradeRiskState.side
             );
+            updatePreviewRiskLines();
         }
 
         let dynamicRiskTimer = null;
@@ -4159,9 +4249,9 @@
             if (!Number.isFinite(price) || price <= 0) return;
             livePrice = price;
             updatePositionLive(price);
-            document.getElementById('lastPrice').innerText = formatPrice(price);
-            renderDynamicRiskNow();
-            updateTradePreview();
+            const priceText = formatPrice(price);
+            const lastPriceEl = document.getElementById('lastPrice');
+            if (lastPriceEl && lastPriceEl.textContent !== priceText) lastPriceEl.textContent = priceText;
             if (changePct !== null && Number.isFinite(changePct)) {
                 live24hChange = changePct;
                 const changeStr = `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`;
