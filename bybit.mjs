@@ -114,7 +114,7 @@ export async function setLeverage(symbol, leverage) {
 
 export async function placeOrder(order) {
   assertTradingEnabled();
-  const allowed = ['category','symbol','side','orderType','qty','price','timeInForce','positionIdx','reduceOnly','closeOnTrigger','orderLinkId','takeProfit','stopLoss','tpTriggerBy','slTriggerBy','tpslMode','tpOrderType','slOrderType'];
+  const allowed = ['category','symbol','side','orderType','qty','price','timeInForce','positionIdx','reduceOnly','closeOnTrigger','orderLinkId','takeProfit','stopLoss','tpTriggerBy','slTriggerBy','tpslMode','tpOrderType','slOrderType','triggerPrice','triggerDirection','triggerBy'];
   const params = {};
   for (const key of allowed) if (order[key] !== undefined && order[key] !== null && order[key] !== '') params[key] = order[key];
   params.category = 'linear';
@@ -178,6 +178,81 @@ export async function closePartialPosition(symbol, positionIdx = 0, percent = 10
   if (!(qty > 0) || (minQty > 0 && qty < minQty)) throw new Error('Partial close is below the instrument minimum qty/step');
   const side = pos.side === 'Buy' ? 'Sell' : 'Buy';
   return placeOrder({ symbol, side, orderType: 'Market', qty: String(qty), positionIdx, reduceOnly: true, closeOnTrigger: true });
+}
+
+
+export async function applyMultiTakeProfits({ symbol, positionIdx = 0, levels = [], allocations = [40, 35, 25], stopLoss = '' }) {
+  assertTradingEnabled();
+  const sym = String(symbol || '').toUpperCase();
+  const posData = await getPosition(sym);
+  const pos = (posData?.result?.list || []).find(p => Number(p.positionIdx) === Number(positionIdx) && Number(p.size) > 0);
+  if (!pos) throw new Error(`No open position for ${sym} positionIdx=${positionIdx}`);
+  if (!Array.isArray(levels) || levels.length < 1) throw new Error('At least one TP level is required');
+  const alloc = allocations.slice(0, levels.length).map(Number);
+  if (alloc.some(v => !Number.isFinite(v) || v <= 0) || alloc.reduce((a,b) => a+b, 0) > 100.0001) throw new Error('Invalid TP allocations');
+
+  const inst = await getInstrument(sym);
+  const lot = inst?.result?.list?.[0]?.lotSizeFilter || {};
+  const step = Number(lot.qtyStep || 0);
+  const minQty = Number(lot.minOrderQty || 0);
+  const tick = Number(inst?.result?.list?.[0]?.priceFilter?.tickSize || 0);
+  const normalize = (q) => {
+    const n = step > 0 ? Math.floor((Number(q) + 1e-12) / step) * step : Number(q);
+    return n;
+  };
+  const cleanLevels = levels.map(Number).filter(v => Number.isFinite(v) && v > 0);
+  if (!cleanLevels.length) throw new Error('Invalid TP prices');
+  const mark = Number(pos.markPrice || pos.avgPrice || 0);
+  const isLong = pos.side === 'Buy';
+  const ordered = cleanLevels.slice().sort((a,b) => isLong ? a-b : b-a);
+  for (const price of ordered) {
+    if ((isLong && !(price > mark)) || (!isLong && !(price < mark))) throw new Error('TP levels must be on the profit side of the current price');
+    if (tick > 0 && Math.abs(price / tick - Math.round(price / tick)) > 1e-7) throw new Error('TP price does not match tickSize');
+  }
+
+  const open = await getOpenOrders(sym);
+  const old = open?.result?.list || [];
+  for (const o of old) {
+    if (String(o.orderLinkId || '').startsWith('MTP_')) {
+      try { await cancelOrder(sym, o.orderId, o.orderLinkId); } catch (_) {}
+    }
+  }
+
+  const closeSide = isLong ? 'Sell' : 'Buy';
+  const orders = [];
+  for (let i = 0; i < ordered.length; i++) {
+    const qty = normalize(Number(pos.size) * Number(alloc[i] ?? alloc[alloc.length - 1]) / 100);
+    if (!(qty > 0) || (minQty > 0 && qty < minQty)) throw new Error(`TP${i+1} size is below instrument minimum qty`);
+    const link = `MTP_${i+1}_${Date.now().toString(36)}`;
+    const data = await placeOrder({
+      symbol: sym, side: closeSide, orderType: 'Market', qty: String(qty), positionIdx,
+      reduceOnly: true, closeOnTrigger: true, triggerPrice: String(ordered[i]),
+      triggerDirection: isLong ? 1 : 2, triggerBy: 'MarkPrice', orderLinkId: link
+    });
+    orders.push({ level: i + 1, price: ordered[i], qty, allocation: Number(alloc[i] ?? 0), orderId: data?.result?.orderId || '', orderLinkId: link });
+  }
+
+  if (stopLoss !== undefined && stopLoss !== null && stopLoss !== '') {
+    await setTradingStop({ symbol: sym, positionIdx, stopLoss: String(stopLoss), slTriggerBy: 'MarkPrice' });
+  }
+  return { orders, stopLoss: stopLoss || '' };
+}
+
+export async function moveStopToBreakeven(symbol, positionIdx = 0, bufferTicks = 1) {
+  assertTradingEnabled();
+  const sym = String(symbol || '').toUpperCase();
+  const data = await getPosition(sym);
+  const pos = (data?.result?.list || []).find(p => Number(p.positionIdx) === Number(positionIdx) && Number(p.size) > 0);
+  if (!pos) throw new Error(`No open position for ${sym} positionIdx=${positionIdx}`);
+  const inst = await getInstrument(sym);
+  const tick = Number(inst?.result?.list?.[0]?.priceFilter?.tickSize || 0);
+  const buffer = Math.max(0, Number(bufferTicks) || 0) * tick;
+  const avg = Number(pos.avgPrice || 0);
+  if (!(avg > 0)) throw new Error('Position entry price is unavailable');
+  const slRaw = pos.side === 'Buy' ? avg + buffer : avg - buffer;
+  const sl = tick > 0 ? Math.round(slRaw / tick) * tick : slRaw;
+  await setTradingStop({ symbol: sym, positionIdx, stopLoss: String(sl), slTriggerBy: 'MarkPrice' });
+  return { stopLoss: sl };
 }
 
 export async function closePosition(symbol, positionIdx = 0) {

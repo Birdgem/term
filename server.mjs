@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import {
   getConfig, getPrivateWsAuth, getWalletBalance, getPublicTicker, getPosition, getOpenOrders, getOrderHistory,
-  getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition, closePartialPosition
+  getInstrument, setLeverage, placeOrder, cancelOrder, cancelAll, setTradingStop, closePosition, closePartialPosition, applyMultiTakeProfits, moveStopToBreakeven
 } from './bybit.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -81,6 +81,16 @@ const server = http.createServer(async (req, res) => {
     if (method === 'POST' && url.pathname === '/api/trading-stop') {
       const body = await readJson(req); const data = await setTradingStop(body);
       return json(res, 200, { ok: true, result: data.result });
+    }
+    if (method === 'POST' && url.pathname === '/api/multi-tp') {
+      const body = await readJson(req);
+      const data = await applyMultiTakeProfits(body);
+      return json(res, 200, { ok: true, result: data });
+    }
+    if (method === 'POST' && url.pathname === '/api/multi-tp-be') {
+      const body = await readJson(req);
+      const data = await moveStopToBreakeven(body.symbol, body.positionIdx ?? 0, body.bufferTicks ?? 1);
+      return json(res, 200, { ok: true, result: data });
     }
     if (method === 'POST' && url.pathname === '/api/close-partial') {
       const body = await readJson(req); const data = await closePartialPosition(body.symbol, body.positionIdx ?? 0, body.percent ?? 100);

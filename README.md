@@ -1,13 +1,15 @@
-# Trading Terminal — Stage 5.10.4 Dynamic Risk Follow
+# Bybit Scalping Terminal — Stage 5.12 Multi-TP
 
-Based on Stage 5.10.3 / 5.11.1.
+Mobile-first Bybit Global Unified terminal.
 
-## Fix
-- Dynamic TP/SL/RR is rendered from a dedicated local state.
-- Dynamic levels recalculate from the current realtime price every 250 ms while dynamic mode is active.
-- Realtime price transport is not changed.
-- Market preview uses livePrice directly, with a visible-price fallback only if livePrice has not populated yet.
-- RR/TP/SL presets force an immediate render and no longer depend on DOM input events.
-- Manual TP/SL input switches to manual mode and records the current entry reference.
+## Stage 5.12
+- Multi-TP: TP1/TP2/TP3 with 40/35/25% position distribution.
+- AUTO 3TP selects up to three S/R levels and places targets inside the levels for scalping.
+- Full-position SL remains separate and automatically follows the remaining position size.
+- BE AUTO moves the stop to breakeven after TP1 is filled.
+- Conditional reduce-only TP orders use the instrument tickSize/qtyStep.
+- Existing realtime price, dynamic RR/TP/SL, AUTO S/R, SCORE, POS and ORD flows are preserved.
+- Trading remains disabled unless `TRADING_ENABLED=true` is explicitly enabled on Render.
 
-Trading remains disabled unless explicitly enabled via TRADING_ENABLED.
+## Deploy
+Deploy the ZIP as the existing Render Web Service. Keep the same environment variables.
