@@ -877,162 +877,7 @@
             #desktopTradePanel, aside { display:none !important; }
         }
 
-
-
-        /* Stage 5.25 — micro compact mobile trading panel */
-        @media (max-width:767px) {
-            #mobileTradeDock {
-                max-height: 40svh !important;
-                padding-bottom: calc(3px + env(safe-area-inset-bottom)) !important;
-                background: rgba(13,17,23,.76) !important;
-                backdrop-filter: blur(18px) saturate(120%);
-                -webkit-backdrop-filter: blur(18px) saturate(120%);
-            }
-            #mobileTradeDock > .mobile-trade-header {
-                padding: 3px 5px !important;
-                gap: 3px !important;
-            }
-            #mobileTradeDock .mobile-trade-topline { gap: 3px !important; }
-            #mobileTradeDock .mobile-trade-topline-left { gap: 3px !important; }
-            #mobileTradeDock .mobile-trade-statusline { gap: 3px !important; }
-            #mobileTradeDock .mobile-trade-statusline #mobilePositionCard { font-size: 8px !important; }
-            #mobileTradeDock #mobilePositionTabBtn,
-            #mobileTradeDock #mobileOrdersTabBtn {
-                min-width: 36px !important;
-                width: 36px !important;
-                min-height: 28px !important;
-                height: 28px !important;
-                font-size: 9px !important;
-            }
-            #mobileTradeDock #mobileCloseBtn {
-                min-width: 58px !important;
-                width: 58px !important;
-                min-height: 30px !important;
-                height: 30px !important;
-                font-size: 9px !important;
-                padding: 0 5px !important;
-            }
-            #mobileTradeDock .mobile-trade-toggle {
-                width: 29px !important;
-                height: 29px !important;
-            }
-            #mobileTradeDock .mobile-strength-strip {
-                min-height: 27px !important;
-                padding: 2px 4px !important;
-                gap: 4px !important;
-                font-size: 9px !important;
-            }
-            #mobileTradeDock .mobile-strength-value { font-size: 9px !important; }
-            #mobileTradeDock .mobile-trade-body {
-                max-height: calc(40svh - 66px) !important;
-                padding: 0 1px !important;
-                gap: 3px !important;
-            }
-            #mobileTradeDock .mobile-trade-body > * { margin-top: 3px !important; }
-            #mobileTradeDock .trade-input {
-                min-height: 31px !important;
-                height: 31px !important;
-                padding: 4px 7px !important;
-                font-size: 10px !important;
-                border-radius: 8px !important;
-            }
-            #mobileTradeDock .trade-btn {
-                min-height: 38px !important;
-                height: 38px !important;
-                font-size: 11px !important;
-                border-radius: 9px !important;
-            }
-            #mobileTradeDock .trade-quick {
-                min-height: 26px !important;
-                height: 26px !important;
-                padding: 3px 7px !important;
-                font-size: 9px !important;
-                border-radius: 7px !important;
-            }
-            #mobileTradeDock .mobile-trade-row.compact,
-            #mobileTradeDock .mobile-trade-row.two {
-                gap: 4px !important;
-            }
-            #mobileTradeDock .mobile-trade-row.two .trade-input {
-                min-width: 0 !important;
-            }
-            #mobileTradeDock .mobile-trade-scroll-row {
-                gap: 4px !important;
-                padding: 0 !important;
-            }
-            #mobileTradeDock .mobile-trade-scroll-row .trade-quick {
-                min-height: 26px !important;
-                height: 26px !important;
-                min-width: 43px !important;
-            }
-            #mobileTradeDock .mobile-trade-scroll-row .trade-quick[data-risk],
-            #mobileTradeDock .mobile-trade-scroll-row .trade-quick[data-rr] { min-width: 52px !important; }
-            #mobileTradeDock .mobile-trade-scroll-row .trade-quick#mobileAutoSR { min-width: 61px !important; }
-            #mobileTradeDock .mobile-trade-scroll-row .trade-quick#mobileMultiTpToggle,
-            #mobileTradeDock .mobile-trade-scroll-row .trade-quick#mobileAuto3Tp { min-width: 55px !important; }
-            #mobileTradeDock .mobile-trade-scroll-row .trade-quick#mobileAutoBE { min-width: 58px !important; }
-            #mobileTradeDock .trade-preview {
-                padding: 3px 5px !important;
-                gap: 4px !important;
-                border-radius: 7px !important;
-            }
-            #mobileTradeDock .trade-preview .k { font-size: 7px !important; }
-            #mobileTradeDock .trade-preview .v { font-size: 9px !important; }
-            #mobileTradeDock .mobile-trade-grid { gap: 4px !important; }
-            #mobileTradeDock .trade-status { font-size: 8px !important; min-height: 12px !important; line-height: 12px !important; }
-
-            /* Stage 5.25.2 — entry buttons live outside the scroll area and stay visible. */
-        @media (max-width:767px) {
-            #mobileTradeDock {
-                max-height: 46svh !important;
-            }
-            #mobileTradeDock .mobile-trade-body {
-                max-height: calc(46svh - 122px) !important;
-                overflow-y: auto !important;
-                padding-bottom: 2px !important;
-            }
-            #mobileTradeDock .mobile-entry-footer {
-                position:relative !important;
-                z-index:20 !important;
-                display:grid !important;
-                grid-template-columns:1fr 1fr !important;
-                gap:5px !important;
-                margin:3px 2px 0 !important;
-                padding:4px 0 calc(4px + env(safe-area-inset-bottom)) !important;
-                background:linear-gradient(to bottom, rgba(13,17,23,.35), rgba(13,17,23,.90)) !important;
-                backdrop-filter:blur(10px);
-                -webkit-backdrop-filter:blur(10px);
-            }
-            #mobileTradeDock .mobile-entry-footer .trade-btn {
-                display:flex !important;
-                visibility:visible !important;
-                opacity:1 !important;
-                height:38px !important;
-                min-height:38px !important;
-                width:100% !important;
-                font-size:11px !important;
-            }
-        }
-
-        /* Stage 5.25.1 — keep the actual entry buttons visible while the compact body scrolls. */
-            #mobileTradeDock .mobile-trade-grid {
-                position: sticky;
-                bottom: 0;
-                z-index: 6;
-                margin-top: 3px !important;
-                padding: 3px 0 calc(3px + env(safe-area-inset-bottom)) !important;
-                background: linear-gradient(to bottom, rgba(13,17,23,.18), rgba(13,17,23,.92) 35%, rgba(13,17,23,.96));
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
-            }
-            #mobileTradeDock .mobile-trade-grid .trade-btn {
-                height: 36px !important;
-                min-height: 36px !important;
-                font-size: 11px !important;
-            }
-        }
-
-    </style>
+</style>
 </head>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
 
@@ -1530,11 +1375,11 @@
                         <button id="mobileApplyMultiTp" class="trade-quick px-2">APPLY</button>
                     </div>
                 </div>
+                <div class="mobile-trade-grid">
+                    <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
+                    <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
+                </div>
                 <div id="mobileTradeStatus" class="trade-status text-[9px] font-mono text-bybit-muted truncate"></div>
-            </div>
-            <div class="mobile-trade-grid mobile-entry-footer">
-                <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
-                <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
             </div>
         </div>
     </div>
@@ -5006,7 +4851,7 @@
                     lineWidth: 1,
                     lineStyle: LightweightCharts.LineStyle.Dashed,
                     axisLabelVisible: true,
-                    title: `${isRes ? 'R' : 'S'} (${zone.count}x)`,
+                    title: `${isRes ? 'Сопротивление' : 'Поддержка'} (${zone.count}x)`,
                 });
                 srPriceLines.push(line);
             });
