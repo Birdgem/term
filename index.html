@@ -2,7 +2,7 @@
 <html lang="ru" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>Bybit Scalper Terminal</title>
     <meta name="theme-color" content="#0d1117">
     <meta name="mobile-web-app-capable" content="yes">
@@ -191,31 +191,56 @@
             }
         }
     
-        /* ===== Stage 5.14 Mobile terminal shell ===== */
+        @media (max-width:767px) {
+            /* The control row is first; keep the live price strip on a separate row. */
+            #priceInfoOverlay {
+                top:42px !important;
+                left:8px !important;
+                right:8px !important;
+                max-width:none !important;
+                width:auto !important;
+                z-index:90 !important;
+                flex-wrap:nowrap !important;
+                overflow:hidden;
+                white-space:nowrap;
+            }
+            #priceInfoOverlay > * { flex:0 0 auto; }
+            #priceInfoOverlay #priceInfoScalpScore { margin-left:auto; }
+        }
+
+        /* ===== Stage 5.16 Mobile chart controls ===== */
         #mobileChartTools { display:none; }
         .mobile-strength-strip { display:none; }
         #installAppBtn { display:none; }
         #fullscreenBtn.fullscreen-active { color:#f7a600; border-color:rgba(247,166,0,.45); background:rgba(247,166,0,.10); }
         @media (max-width:767px) {
             #desktopTimeframeBar { display:none !important; }
+            /* Chart controls occupy their own top row; price strip sits below them.
+               This prevents the live price/score overlay from covering timeframes. */
             #mobileChartTools {
                 display:flex;
                 position:absolute;
-                top:7px;
-                left:7px;
-                right:auto;
-                z-index:25;
+                top:6px;
+                left:8px;
+                right:8px;
+                z-index:100;
                 align-items:center;
-                gap:3px;
+                justify-content:flex-start;
+                gap:2px;
                 padding:3px;
                 border:1px solid #21262d;
                 border-radius:9px;
-                background:rgba(13,17,23,.88);
+                background:rgba(13,17,23,.94);
                 backdrop-filter:blur(8px);
                 box-shadow:0 4px 14px rgba(0,0,0,.35);
+                overflow-x:auto;
+                overflow-y:hidden;
+                scrollbar-width:none;
+                -webkit-overflow-scrolling:touch;
             }
+            #mobileChartTools::-webkit-scrollbar { display:none; }
             #mobileChartTools .mobile-tf-btn {
-                min-width:34px; min-height:27px; padding:3px 6px; border-radius:6px;
+                min-width:31px; min-height:27px; padding:3px 5px; border-radius:6px; flex:0 0 auto;
                 color:#8b949e; background:transparent; border:1px solid transparent;
                 font:800 10px ui-monospace,monospace; touch-action:manipulation;
             }
@@ -223,7 +248,7 @@
                 color:#f7a600; background:#161b22; border-color:rgba(247,166,0,.45);
             }
             #mobileChartTools .mobile-chart-action {
-                width:28px; min-width:28px; height:27px; padding:0; display:flex; align-items:center; justify-content:center;
+                width:28px; min-width:28px; height:27px; flex:0 0 auto; padding:0; display:flex; align-items:center; justify-content:center;
                 color:#8b949e; background:transparent; border:1px solid #30363d; border-radius:6px;
                 font:900 9px ui-monospace,monospace;
             }
@@ -560,6 +585,184 @@
             #rsiChartContainer { height:105px !important; }
             #macdChartContainer { height:115px !important; }
         }
+
+
+        /* ===== Stage 5.17 — Mobile-first scalper shell ===== */
+        @media (max-width:767px) {
+            :root { color-scheme: dark; }
+            html, body { width:100%; height:100%; min-height:100%; overflow:hidden !important; }
+            body {
+                padding-bottom:0 !important;
+                overscroll-behavior:none;
+                background:#090c10;
+            }
+            #topHeader {
+                position:fixed !important;
+                top:0; left:0; right:0;
+                height:calc(50px + env(safe-area-inset-top));
+                min-height:50px;
+                padding:calc(4px + env(safe-area-inset-top)) 7px 4px !important;
+                display:flex !important;
+                z-index:200 !important;
+                border-bottom:1px solid #20252d;
+                box-shadow:0 3px 18px rgba(0,0,0,.30);
+                background:rgba(13,17,23,.96) !important;
+                backdrop-filter:blur(16px);
+            }
+            #topHeader > div:first-child { height:42px; min-height:42px; width:100%; gap:5px !important; }
+            #topHeader > div:first-child > div:first-child { flex:1 1 auto; min-width:0; gap:5px !important; }
+            #topHeader > div:nth-child(2), #desktopTimeframeBar { display:none !important; }
+            #topHeader .w-7.h-7 { display:none !important; }
+            #symbolDropdownContainer { flex:0 1 138px; min-width:112px; }
+            #symbolDropdownBtn {
+                width:100%; min-width:0 !important; height:38px;
+                padding:0 8px !important; border-radius:10px;
+            }
+            #currentSymbolLabel { font-size:12px !important; }
+            #headerSymbolChange { font-size:9px !important; }
+            #dominanceDropdownContainer { flex:1 1 auto; min-width:0; }
+            #dominanceDropdownBtn {
+                height:38px; max-width:none !important; width:100%;
+                padding:0 7px !important; border-radius:10px;
+            }
+            #domBadgeText { max-width:none; font-size:10px !important; }
+            #mobileHeaderActions { display:flex !important; gap:4px !important; }
+            #mobileRefreshBtn, #mobileAnalyticsActionBtn { height:38px !important; min-width:38px !important; width:38px; padding:0 !important; }
+            #mobileAnalyticsActionBtn span:not(#mobilePatternBadge2) { display:none; }
+            #mobilePatternBadge2 { position:absolute; top:-3px; right:-3px; }
+
+            .main-layout {
+                display:block !important;
+                width:100%; height:100dvh;
+                padding-top:calc(50px + env(safe-area-inset-top));
+                overflow:hidden !important;
+            }
+            main.chart-main {
+                display:block !important;
+                width:100%; height:100%; min-height:0;
+                overflow-y:auto !important; overflow-x:hidden !important;
+                -webkit-overflow-scrolling:touch;
+                overscroll-behavior-y:contain;
+                padding-bottom:calc(58px + env(safe-area-inset-bottom));
+            }
+            #priceInfoOverlay {
+                top:42px !important; left:7px !important; right:7px !important;
+                width:auto !important; max-width:none !important;
+                height:34px; min-height:34px;
+                padding:0 8px !important; gap:5px !important;
+                border-radius:9px !important;
+                z-index:145 !important;
+                font-size:10px !important;
+                flex-wrap:nowrap !important;
+                overflow:hidden !important;
+                white-space:nowrap;
+                background:rgba(20,24,31,.94) !important;
+                box-shadow:0 4px 16px rgba(0,0,0,.35);
+            }
+            #priceInfoOverlay > * { flex:0 0 auto !important; }
+            #priceInfoOverlay > .flex.items-center.space-x-1.font-mono:nth-of-type(2) { min-width:0; }
+            #priceInfoOverlay #priceInfo24h { display:flex !important; }
+            #priceInfoOverlay #priceInfoScalpScore { margin-left:auto !important; }
+            #priceInfoOverlay #resetChartViewBtnTop { display:none !important; }
+            #priceInfoOverlay .text-bybit-border { display:none; }
+            #currentSymbolText { font-size:12px !important; }
+            #lastPrice { font-size:12px !important; }
+            #priceInfo24h { font-size:9px !important; }
+            #priceInfoScalpScore { min-width:62px !important; padding:3px 5px !important; }
+
+            #priceChartContainer {
+                height:clamp(360px, 57svh, 560px) !important;
+                min-height:360px !important;
+                border-bottom:1px solid #20252d;
+            }
+            #volumeChartContainer { height:88px !important; }
+            #rsiChartContainer { height:94px !important; }
+            #macdChartContainer { height:100px !important; }
+            .chart-panel { overflow:hidden; }
+            #chartsArea { width:100%; }
+
+            #mobileChartTools {
+                display:flex !important;
+                position:absolute !important;
+                top:4px !important; left:7px !important; right:7px !important;
+                height:34px; min-height:34px;
+                padding:3px !important; gap:2px !important;
+                z-index:150 !important;
+                border-radius:9px !important;
+                background:rgba(10,13,18,.94) !important;
+                border:1px solid #242a33 !important;
+                box-shadow:0 4px 16px rgba(0,0,0,.35);
+            }
+            #mobileChartTools .mobile-tf-btn {
+                min-width:38px !important; height:27px !important; min-height:27px !important;
+                padding:2px 6px !important; font-size:10px !important;
+            }
+            #mobileChartTools .mobile-chart-action {
+                width:34px !important; min-width:34px !important; height:27px !important;
+                font-size:8px !important;
+            }
+            #mobileChartTools .mobile-chart-action:first-of-type { margin-left:2px; }
+            #mobileOhlcMini { top:78px !important; z-index:140 !important; }
+            .panel-title { z-index:12; }
+
+            /* Mobile trade sheet: one-handed, bottom-sheet style. */
+            #mobileTradeDock {
+                left:5px !important; right:5px !important; bottom:5px !important;
+                max-height:min(62svh, 560px) !important;
+                border:1px solid #2a3039 !important;
+                border-radius:15px 15px 11px 11px !important;
+                padding-bottom:calc(4px + env(safe-area-inset-bottom)) !important;
+                z-index:300 !important;
+                background:rgba(17,21,28,.97) !important;
+                box-shadow:0 -12px 34px rgba(0,0,0,.55) !important;
+            }
+            #mobileTradeDock.collapsed {
+                max-height:64px !important;
+                border-radius:15px !important;
+            }
+            #mobileTradeDock > .mobile-trade-header {
+                padding:6px 7px 5px !important;
+                gap:5px !important;
+            }
+            #mobileTradeDock .mobile-trade-topline { min-height:24px; }
+            #mobileTradeDock .mobile-trade-statusline { min-height:36px; }
+            #mobileTradeDock .mobile-trade-statusline #mobilePositionCard { font-size:10px; }
+            #mobileTradeDock #mobilePositionTabBtn, #mobileTradeDock #mobileOrdersTabBtn {
+                width:42px !important; min-width:42px !important; height:36px !important; min-height:36px !important;
+                font-size:10px !important;
+            }
+            #mobileTradeDock #mobileCloseBtn {
+                width:78px !important; min-width:78px !important; height:36px !important; min-height:36px !important;
+                border-radius:9px !important; font-size:11px !important;
+            }
+            #mobileTradeDock .mobile-strength-strip {
+                min-height:34px; padding:6px 8px !important;
+                grid-template-columns:24px minmax(70px,1fr) auto !important;
+                border-radius:9px !important;
+                font-size:10px !important;
+            }
+            #mobileTradeDock .mobile-strength-bar { height:8px !important; }
+            #mobileTradeDock .mobile-trade-body {
+                max-height:calc(62svh - 126px) !important;
+                padding:1px 2px 2px !important;
+                overflow-y:auto !important;
+                overscroll-behavior:contain;
+            }
+            #mobileTradeDock .trade-input { height:44px !important; min-height:44px !important; font-size:13px !important; border-radius:10px !important; }
+            #mobileTradeDock .trade-btn { height:48px !important; min-height:48px !important; border-radius:10px !important; font-size:14px !important; }
+            #mobileTradeDock .trade-preview { padding:7px !important; min-height:46px; border-radius:9px !important; }
+            #mobileTradeDock .trade-preview .k { font-size:8px; }
+            #mobileTradeDock .trade-preview .v { font-size:10px; }
+            #mobileTradeDock .mobile-trade-scroll-row { padding-bottom:2px; }
+            #mobileTradeDock .mobile-trade-scroll-row .trade-quick { height:34px !important; min-height:34px !important; }
+
+            #mobileToolDrawer { z-index:500 !important; max-height:82svh !important; }
+            #mobileToolDrawer .drawer-scroll { max-height:calc(82svh - 52px) !important; }
+
+            /* No desktop-only panels leaking into the mobile shell. */
+            #desktopTradePanel, aside { display:none !important; }
+        }
+
 </style>
 </head>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
@@ -841,6 +1044,9 @@
                         <button id="mobileFullscreenBtn" class="mobile-chart-action" title="Полный экран"><i data-lucide="maximize-2" class="w-3.5 h-3.5"></i></button>
                         <button id="mobileVolumeBtn" class="mobile-chart-action chart-toggle-active" title="Volume">V</button>
                         <button id="mobileOrderbookBtn" class="mobile-chart-action chart-toggle-active" title="Стакан">S</button>
+                        <button id="mobileAutoChartBtn" class="mobile-chart-action" title="Автомасштаб">AUTO</button>
+                        <button id="mobileRsiBtn" class="mobile-chart-action chart-toggle-active" title="RSI">R</button>
+                        <button id="mobileMacdBtn" class="mobile-chart-action chart-toggle-active" title="MACD">M</button>
                     </div>
                     <div class="panel-title">PRICE</div>
                 </div>
@@ -1989,6 +2195,17 @@
                 if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change', {bubbles:true})); }
                 document.getElementById('mobileOrderbookBtn')?.classList.toggle('chart-toggle-active', !!el?.checked);
             });
+            document.getElementById('mobileAutoChartBtn')?.addEventListener('click', () => resetChartView());
+            document.getElementById('mobileRsiBtn')?.addEventListener('click', () => {
+                const el = document.getElementById('toggleRSI');
+                if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change', {bubbles:true})); }
+                document.getElementById('mobileRsiBtn')?.classList.toggle('chart-toggle-active', !!el?.checked);
+            });
+            document.getElementById('mobileMacdBtn')?.addEventListener('click', () => {
+                const el = document.getElementById('toggleMACD');
+                if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change', {bubbles:true})); }
+                document.getElementById('mobileMacdBtn')?.classList.toggle('chart-toggle-active', !!el?.checked);
+            });
             document.addEventListener('fullscreenchange', updateAppModeUi);
             updateAppModeUi();
 
@@ -2911,7 +3128,7 @@
 
             const mobileTradeDock = document.getElementById('mobileTradeDock');
             const mobileTradeToggleBtn = document.getElementById('mobileTradeToggleBtn');
-            const savedCollapsed = localStorage.getItem('terminal.mobileTradeCollapsed') === '1';
+            const savedCollapsed = localStorage.getItem('terminal.mobileTradeCollapsed') !== '0';
             const setMobileTradeCollapsed = (collapsed) => {
                 if (!mobileTradeDock) return;
                 mobileTradeDock.classList.toggle('collapsed', collapsed);
