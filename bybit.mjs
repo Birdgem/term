@@ -108,7 +108,7 @@ export async function getInstrument(symbol = '') {
 export async function setLeverage(symbol, leverage) {
   assertTradingEnabled();
   const lev = String(leverage);
-  if (!symbol || !/^\\d+(?:\\.\\d+)?$/.test(lev) || Number(lev) <= 0) throw new Error('Invalid symbol or leverage');
+  if (!symbol || !/^\d+(?:\.\d+)?$/.test(lev) || Number(lev) <= 0) throw new Error('Invalid symbol or leverage');
   return request('POST', '/v5/position/set-leverage', { category: 'linear', symbol: symbol.toUpperCase(), buyLeverage: lev, sellLeverage: lev });
 }
 
