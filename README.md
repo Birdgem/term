@@ -1,3 +1,7 @@
+# Stage 5.29 — Manual TP/SL Percent
+
+Based on stable Stage 5.28.1. Replaces the fixed TP/SL percentage preset buttons with editable mobile TP % and SL % fields. Percent values can be arbitrary decimals and both TP and SL can be active simultaneously. RR, AUTO S/R, 3 TP, BE AUTO and trading mechanics remain unchanged.
+
 # Bybit Mobile Scalping Terminal — Stage 5.24.1
 
 Microfix: corrected closed-position direction in position history and closed-position popup.

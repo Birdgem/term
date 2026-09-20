@@ -328,6 +328,8 @@
             background:#0d1117; border:1px solid #30363d; color:#8b949e;
             font:700 10px ui-monospace,monospace; touch-action:manipulation;
         }
+        .risk-pct-input { width:58px !important; min-width:58px; padding-left:7px !important; padding-right:7px !important; text-align:center; font-weight:800; }
+
         .trade-quick:active { transform:scale(.97); border-color:#f7a600; color:#fff; }
         .trade-preview {
             display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px;
@@ -1453,11 +1455,9 @@
                     <input id="mobileSL" class="trade-input" type="number" step="any" placeholder="SL (optional)">
                 </div>
                 <div class="mobile-trade-scroll-row">
-                    <span class="text-[9px] text-bybit-muted shrink-0">Риск</span>
-                    <button class="trade-quick" data-risk="0.5">TP +0.5%</button>
-                    <button class="trade-quick" data-risk="1">TP +1%</button>
-                    <button class="trade-quick" data-risk="-0.5">SL 0.5%</button>
-                    <button class="trade-quick" data-risk="-1">SL 1%</button>
+                    <span class="text-[9px] text-bybit-muted shrink-0">TP/SL %</span>
+                    <input id="mobileTPPct" class="trade-input risk-pct-input" type="number" min="0" step="0.1" inputmode="decimal" placeholder="TP %">
+                    <input id="mobileSLPct" class="trade-input risk-pct-input" type="number" min="0" step="0.1" inputmode="decimal" placeholder="SL %">
                     <button class="trade-quick" data-rr="2">RR 1:2</button>
                     <button class="trade-quick" data-rr="3">RR 1:3</button>
                     <button id="mobileAutoSR" class="trade-quick border-bybit-green/30">AUTO S/R</button>
@@ -2691,7 +2691,7 @@
         let latestSrZones = [];
         const tradeRiskState = {
             side: 'Buy',
-            mode: 'manual', // manual | rr | tp | sl
+            mode: 'manual', // manual | rr | percent | sr
             tpPct: null,
             slPct: null,
             rrRatio: null,
@@ -2798,6 +2798,7 @@
                 tradeRiskState.entryPrice = 0;
                 tradeRiskState.tpPrice = 0;
                 tradeRiskState.slPrice = 0;
+                syncRiskPercentInputs();
                 multiTpState.enabled = false;
                 multiTpState.levels = [0, 0, 0];
                 const mtp = document.getElementById('mobileMultiTpToggle');
@@ -2991,13 +2992,15 @@
             }
             let tp = tradeRiskState.tpPrice || 0;
             let sl = tradeRiskState.slPrice || 0;
-            if (tradeRiskState.mode === 'tp' && tradeRiskState.tpPct !== null) {
-                const pct = Number(tradeRiskState.tpPct) / 100;
-                tp = tradeRiskState.side === 'Buy' ? price * (1 + pct) : price * (1 - pct);
-            }
-            if (tradeRiskState.mode === 'sl' && tradeRiskState.slPct !== null) {
-                const pct = Number(tradeRiskState.slPct) / 100;
-                sl = tradeRiskState.side === 'Buy' ? price * (1 - pct) : price * (1 + pct);
+            if (tradeRiskState.mode === 'percent') {
+                if (tradeRiskState.tpPct !== null && Number(tradeRiskState.tpPct) > 0) {
+                    const pct = Number(tradeRiskState.tpPct) / 100;
+                    tp = tradeRiskState.side === 'Buy' ? price * (1 + pct) : price * (1 - pct);
+                }
+                if (tradeRiskState.slPct !== null && Number(tradeRiskState.slPct) > 0) {
+                    const pct = Number(tradeRiskState.slPct) / 100;
+                    sl = tradeRiskState.side === 'Buy' ? price * (1 - pct) : price * (1 + pct);
+                }
             }
             return { tp, sl };
         }
@@ -3032,12 +3035,15 @@
             if (stateEl) {
                 const parts = [];
                 if (tradeRiskState.mode === 'rr' && tradeRiskState.rrRatio !== null) parts.push(`RR 1:${Number(tradeRiskState.rrRatio).toFixed(2)} · риск ${Number(tradeRiskState.rrRiskPct).toFixed(2)}%`);
-                else if (tradeRiskState.mode === 'tp' && tradeRiskState.tpPct !== null) parts.push(`TP ${Number(tradeRiskState.tpPct)}%`);
-                else if (tradeRiskState.mode === 'sl' && tradeRiskState.slPct !== null) parts.push(`SL ${Number(tradeRiskState.slPct)}%`);
+                else if (tradeRiskState.mode === 'percent') {
+                    if (tradeRiskState.tpPct !== null) parts.push(`TP ${Number(tradeRiskState.tpPct)}%`);
+                    if (tradeRiskState.slPct !== null) parts.push(`SL ${Number(tradeRiskState.slPct)}%`);
+                }
                 else if (tradeRiskState.mode === 'sr') parts.push('AUTO S/R');
                 stateEl.textContent = parts.length ? `Динамически: ${parts.join(' · ')}` : 'TP/SL вручную';
                 stateEl.className = 'text-[8px] ml-1 truncate ' + (parts.length ? 'text-bybit-yellow' : 'text-bybit-muted');
             }
+            syncRiskPercentInputs();
         }
 
         function renderDynamicRiskNow() {
@@ -3295,17 +3301,23 @@
             syncTradeChartLevels();
         }
 
-        function fillRiskPreset(percent, field) {
-            const price = previewPrice();
-            if (!price) return;
-            const pct = Math.abs(Number(percent));
+        function setRiskPercent(field, value) {
+            const pct = value === '' ? null : Math.max(0, Number(value));
+            if (pct !== null && !Number.isFinite(pct)) return;
             tradeRiskState.rrRatio = null;
-            tradeRiskState.tpPct = field === 'tp' ? pct : null;
-            tradeRiskState.slPct = field === 'sl' ? pct : null;
-            tradeRiskState.mode = field === 'tp' ? 'tp' : 'sl';
+            if (field === 'tp') tradeRiskState.tpPct = pct;
+            if (field === 'sl') tradeRiskState.slPct = pct;
+            tradeRiskState.mode = (tradeRiskState.tpPct !== null || tradeRiskState.slPct !== null) ? 'percent' : 'manual';
             ensureDynamicRiskTicker();
             renderDynamicRiskNow();
             updateTradePreview();
+        }
+
+        function syncRiskPercentInputs() {
+            const tp = document.getElementById('mobileTPPct');
+            const sl = document.getElementById('mobileSLPct');
+            if (tp) tp.value = tradeRiskState.tpPct !== null ? String(tradeRiskState.tpPct) : '';
+            if (sl) sl.value = tradeRiskState.slPct !== null ? String(tradeRiskState.slPct) : '';
         }
 
         function formatBalance(value) {
@@ -3702,10 +3714,8 @@
             document.querySelectorAll('[data-leverage-preset]').forEach(btn=>btn.addEventListener('click',()=>{
                 m.leverage.value=btn.dataset.leveragePreset+'x'; syncTradeInputs('mobile');
             }));
-            document.querySelectorAll('[data-risk]').forEach(btn=>btn.addEventListener('click',()=>{
-                const v=Number(btn.dataset.risk);
-                fillRiskPreset(v, v >= 0 ? 'tp' : 'sl');
-            }));
+            document.getElementById('mobileTPPct')?.addEventListener('input', e => setRiskPercent('tp', e.target.value));
+            document.getElementById('mobileSLPct')?.addEventListener('input', e => setRiskPercent('sl', e.target.value));
             document.querySelectorAll('[data-rr]').forEach(btn=>btn.addEventListener('click',()=>setRiskRewardPreset(Number(btn.dataset.rr))));
             document.getElementById('mobileAutoSR')?.addEventListener('click', setAutoSRPreset);
             document.getElementById('mobilePreviewLong')?.addEventListener('click',()=>setPreviewSide('Buy'));
