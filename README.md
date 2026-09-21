@@ -1,26 +1,15 @@
-# Stage 5.29 — Manual TP/SL Percent
+# Trading Terminal Stage 5.31.2 — Pattern Center Clean
 
-Based on stable Stage 5.28.1. Replaces the fixed TP/SL percentage preset buttons with editable mobile TP % and SL % fields. Percent values can be arbitrary decimals and both TP and SL can be active simultaneously. RR, AUTO S/R, 3 TP, BE AUTO and trading mechanics remain unchanged.
+Base: Stage 5.31.1 Pattern Center FIX.
 
-# Bybit Mobile Scalping Terminal — Stage 5.24.1
+Changes:
+- Pattern Center keeps all detections from the last 100 candles.
+- One latest instance per pattern type is used for chart labels.
+- Chart label set is capped at 7 visible pattern labels.
+- Pattern Center rows show name, direction, candle/time, description, and occurrence count.
+- Clicking a Pattern Center row calls the existing candle-focus hook when available.
+- Trading logic, S/R, Volume Anomaly, indicators and trade controls are not intentionally changed.
 
-Microfix: corrected closed-position direction in position history and closed-position popup.
-
-Bybit's Closed PnL `side` represents the closing execution side: Sell closes a LONG and Buy closes a SHORT. The UI now inverts that field when displaying the original position direction. Fallback popup data from the live position keeps the original side directly.
-
-No trading, TP/SL, realtime position, or UI mechanics were changed.
-
-## Stage 5.27 — Smooth Mobile Chart
-- Upgraded TradingView Lightweight Charts from 4.1.1 to 5.2.1.
-- Migrated series creation to the v5 unified `addSeries(...)` API.
-- Reduced the main mobile chart viewport to ~280–315px (slightly larger when trade dock is collapsed).
-- Increased price/candle repaint cadence to 10 fps while keeping raw WS data unconstrained.
-- Order-book calculations reduced to ~2/sec; BW/SW chart geometry and DOM bands limited to ~1/sec.
-- BW/SW price-line objects are reused instead of removed/recreated on every order-book update.
-- Trading/backend mechanics, authentication, position management, TP/SL and history are unchanged from the 5.24.1 baseline.
-
-## Stage 5.30.4
-- Fixed chart mode switching in the actual embedded client.
-- Compact mode enforces a 150px mobile price chart.
-- Price/score overlay is now inside the price chart container instead of sitting as a separate block above it.
-- Removed PWA/manifest/service-worker assets from this patch archive.
+Next integration point:
+- If the existing chart renderer exposes its pattern-label drawing function, feed it
+  `getPatternChartLabels(patterns)` so only the clean set is drawn.
