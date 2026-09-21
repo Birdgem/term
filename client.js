@@ -987,11 +987,7 @@
                 if (installBtn) installBtn.style.display = 'none';
                 updateAppModeUi();
             });
-            if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW:', err)));
-            }
-
-            document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
+document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
             document.getElementById('mobileRefreshBtn')?.addEventListener('click', () => doManualRefresh('mobileRefreshIcon'));
 
 
@@ -3211,6 +3207,8 @@
             });
         }
 
+
+        window.applyChartViewMode = applyChartViewMode;
 
         function applyChartViewMode(mode) {
             chartViewMode = mode === 'compact' ? 'compact' : 'full';

@@ -5,16 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>Bybit Scalper Terminal</title>
     <meta name="theme-color" content="#0d1117">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Bybit Scalper">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="icon" href="/icons/icon-192.png" type="image/png">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lightweight Charts v4.1.1 CDN -->
+    <!-- Lightweight Charts v5.2.1 CDN -->
     <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1301,8 +1294,8 @@
             </div>
 
             <div id="chartViewTabs" class="chart-view-tabs" role="tablist" aria-label="Режим графика">
-                <button id="chartViewFullBtn" class="chart-view-tab active" role="tab" aria-selected="true">ПОЛНЫЙ ГРАФИК</button>
-                <button id="chartViewCompactBtn" class="chart-view-tab" role="tab" aria-selected="false">КОМПАКТНЫЙ</button>
+                <button id="chartViewFullBtn" class="chart-view-tab active" role="tab" aria-selected="true" type="button" onclick="window.applyChartViewMode && window.applyChartViewMode('full')">ПОЛНЫЙ ГРАФИК</button>
+                <button id="chartViewCompactBtn" class="chart-view-tab" role="tab" aria-selected="false" type="button" onclick="window.applyChartViewMode && window.applyChartViewMode('compact')">КОМПАКТНЫЙ</button>
             </div>
             <div id="chartsArea" class="chart-mode-full">
                 <div id="priceChartContainer" class="chart-panel">
@@ -2687,11 +2680,7 @@
                 if (installBtn) installBtn.style.display = 'none';
                 updateAppModeUi();
             });
-            if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW:', err)));
-            }
-
-            document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
+document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
             document.getElementById('mobileRefreshBtn')?.addEventListener('click', () => doManualRefresh('mobileRefreshIcon'));
 
 
