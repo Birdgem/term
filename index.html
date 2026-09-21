@@ -43,6 +43,11 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        /* Stage 5.30.7: slightly more compact typography without changing layout. */
+        body {
+            font-size: 14px;
+        }
+
         ::-webkit-scrollbar {
             width: 4px;
             height: 4px;
@@ -185,6 +190,10 @@
         }
 
         @media (max-width: 767px) {
+            body {
+                font-size: 13.5px;
+            }
+
             #ohlcContainer {
                 display: none !important;
             }
@@ -4670,10 +4679,52 @@
                 patternsList = analysis.patterns;
             }
 
+            // Mark clear volume anomalies directly on the corresponding price candle.
+            // V is deliberately kept separate from the trading/pattern logic.
+            const volumeMarkers = calculateVolumeAnomalyMarkers(rawCandles, 100);
+            markers = [...markers, ...volumeMarkers];
+
             if (candleMarkers) candleMarkers.setMarkers(markers);
             renderPatternPanel(patternsList);
 
             updateIndicators();
+        }
+
+        function calculateVolumeAnomalyMarkers(candles, windowSize = 100) {
+            if (!candles || candles.length < 20) return [];
+
+            const sample = candles.slice(-windowSize);
+            if (sample.length < 20) return [];
+
+            const volumes = sample.map(c => Number(c.volume) || 0).filter(v => Number.isFinite(v) && v >= 0);
+            if (volumes.length < 20) return [];
+
+            // Robust baseline: median + MAD, so one giant volume candle cannot
+            // inflate the average and hide itself (or other outliers).
+            const sorted = [...volumes].sort((a, b) => a - b);
+            const median = sorted.length % 2
+                ? sorted[(sorted.length - 1) / 2]
+                : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+
+            const deviations = volumes.map(v => Math.abs(v - median)).sort((a, b) => a - b);
+            const mad = deviations.length % 2
+                ? deviations[(deviations.length - 1) / 2]
+                : (deviations[deviations.length / 2 - 1] + deviations[deviations.length / 2]) / 2;
+
+            const robustStd = mad * 1.4826;
+            const sigmaThreshold = median + (robustStd > 0 ? robustStd * 3 : 0);
+            const ratioThreshold = median * 2.5;
+            const threshold = Math.max(ratioThreshold, sigmaThreshold);
+
+            return sample
+                .filter(c => Number(c.volume) >= threshold && Number(c.volume) > 0)
+                .map(c => ({
+                    time: c.time,
+                    position: c.close >= c.open ? 'aboveBar' : 'belowBar',
+                    color: '#f7a600',
+                    shape: 'circle',
+                    text: 'V'
+                }));
         }
 
         function setVolumeData(candles) {
