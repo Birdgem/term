@@ -883,14 +883,15 @@
         }
 
 
-        /* Stage 5.27: smaller mobile chart viewport without changing trading mechanics. */
+        /* Stage 5.29.2 — compact chart viewport. Keep trading mechanics unchanged. */
         @media (max-width: 767px) {
             #priceChartContainer {
-                height: clamp(280px, 40svh, 315px) !important;
-                min-height: 280px !important;
+                height: 220px !important;
+                min-height: 220px !important;
             }
             body.mobile-trade-collapsed #priceChartContainer {
-                height: clamp(295px, 43svh, 330px) !important;
+                height: 240px !important;
+                min-height: 240px !important;
             }
         }
 
@@ -984,53 +985,6 @@
             #mobileTradeDock .mobile-trade-body .text-bybit-muted { line-height:1.1; }
         }
 
-
-<style id="stage530-compact-ui">
-@media (max-width:767px){
-  #mobileTradeDock{max-height:42svh;padding-bottom:calc(4px + env(safe-area-inset-bottom));background:rgba(13,17,23,.72)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-  #mobileTradeDock > .mobile-trade-header{padding:5px 7px!important;gap:4px!important}
-  #mobileTradeDock .mobile-trade-topline{min-height:25px;gap:4px}
-  #mobileTradeDock .mobile-trade-toggle{width:30px;height:30px}
-  #mobileTradeDock .mobile-trade-statusline{min-height:34px;gap:4px}
-  #mobileTradeDock #mobilePositionTabBtn,#mobileTradeDock #mobileOrdersTabBtn,#mobileTradeDock #mobileCloseBtn{box-sizing:border-box}
-  #mobileTradeDock .mobile-strength-strip{min-height:25px;padding:2px 6px;gap:4px;border-radius:7px;font-size:8px}
-  #mobileTradeDock .mobile-strength-bar{height:5px}
-  #mobileTradeDock .compact-trade-body{display:flex;flex-direction:column;gap:4px!important;max-height:calc(42svh - 100px);overflow-y:auto;overflow-x:hidden;padding:0 1px 2px}
-  #mobileTradeDock .compact-control-row,#mobileTradeDock .compact-risk-row,#mobileTradeDock .compact-price-row{display:flex;align-items:center;gap:3px;min-height:31px}
-  #mobileTradeDock .compact-label,#mobileTradeDock .compact-readout span,#mobileTradeDock .compact-percent-field span,#mobileTradeDock .compact-price-field span{font-size:7px;line-height:1;text-transform:uppercase;color:#8b93a1;white-space:nowrap}
-  #mobileTradeDock .compact-margin-input{width:42px!important;height:29px!important;min-height:29px!important;padding:4px!important;font-size:11px!important;font-weight:700}
-  #mobileTradeDock .compact-leverage-select{width:54px!important;height:29px!important;min-height:29px!important;padding:3px 5px!important;font-size:10px!important}
-  #mobileTradeDock .compact-order-select{width:62px!important;height:29px!important;min-height:29px!important;padding:3px 5px!important;font-size:9px!important;margin-left:auto}
-  #mobileTradeDock .compact-divider{width:1px;height:18px;background:#303640;margin:0 2px}
-  #mobileTradeDock .compact-leverage-row{gap:3px}
-  #mobileTradeDock .compact-leverage-row .trade-quick{height:27px!important;min-height:27px!important;min-width:36px!important;padding:2px 6px!important;font-size:9px!important;border-radius:7px!important}
-  #mobileTradeDock .compact-control-row .trade-quick{height:27px!important;min-height:27px!important;min-width:27px!important;padding:2px 5px!important;font-size:9px!important;border-radius:7px!important}
-  #mobileTradeDock .compact-risk-row{display:grid;grid-template-columns:1.05fr .9fr .9fr .78fr}
-  #mobileTradeDock .compact-readout,#mobileTradeDock .compact-percent-field{height:38px;border:1px solid #303640;border-radius:9px;background:rgba(13,17,23,.52);display:flex;flex-direction:column;justify-content:center;padding:4px 7px;min-width:0}
-  #mobileTradeDock .compact-readout b{font-size:11px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #mobileTradeDock .compact-percent-field input{width:100%;height:20px;border:0!important;background:transparent!important;outline:0;color:#f0f2f5;font-size:12px;font-weight:700;padding:0!important;min-height:20px!important}
-  #mobileTradeDock .compact-percent-field input::placeholder{color:#66707f;opacity:1}
-  #mobileTradeDock .compact-risk-row .trade-input{border-radius:9px!important}
-  #mobileTradeDock .compact-price-row{display:grid;grid-template-columns:1fr 1fr 50px 50px}
-  #mobileTradeDock .compact-price-field{height:37px;border:1px solid #303640;border-radius:9px;background:rgba(13,17,23,.52);display:flex;align-items:center;padding:0 5px;gap:5px;min-width:0}
-  #mobileTradeDock .compact-price-field span{font-size:8px;font-weight:800}
-  #mobileTradeDock .compact-price-field .trade-input{height:27px!important;min-height:27px!important;border:0!important;background:transparent!important;padding:0!important;font-size:11px!important;font-weight:700}
-  #mobileTradeDock .compact-side-preview{height:31px!important;min-height:31px!important;padding:2px 3px!important;font-size:8px!important;border-radius:8px!important}
-  #mobileTradeDock .compact-action-row{display:flex;gap:3px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
-  #mobileTradeDock .compact-action-row::-webkit-scrollbar{display:none}
-  #mobileTradeDock .compact-action-row .trade-quick{height:29px!important;min-height:29px!important;flex:0 0 auto;padding:2px 7px!important;font-size:8px!important;border-radius:7px!important}
-  #mobileTradeDock .compact-multi-tp{margin-top:-1px}
-  #mobileTradeDock .compact-preview{display:grid!important;grid-template-columns:repeat(4,1fr);gap:2px!important;padding:3px 5px!important;min-height:32px!important;border-radius:8px!important}
-  #mobileTradeDock .compact-preview>div{display:flex;align-items:center;justify-content:space-between;gap:3px;min-width:0}
-  #mobileTradeDock .compact-preview .k{font-size:7px!important}
-  #mobileTradeDock .compact-preview .v{font-size:8px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #mobileTradeDock .compact-risk-state{display:flex;justify-content:space-between;gap:5px;font-size:7px;color:#8b93a1;min-height:13px;padding:0 2px}
-  #mobileTradeDock .compact-entry-buttons{margin-top:0!important}
-  #mobileTradeDock .compact-entry-buttons .trade-btn{height:48px!important;min-height:48px!important;font-size:15px!important;border-radius:10px!important}
-  #mobileTradeDock .trade-status{min-height:12px;line-height:1}
-  body.mobile-trade-collapsed{padding-bottom:52px}
-}
-</style>
 </head>
 </style>
 <body class="bg-bybit-bg text-bybit-text font-sans antialiased min-h-screen flex flex-col overflow-x-hidden overflow-y-auto select-none">
@@ -1438,7 +1392,7 @@
 
     <!-- Mobile Trading Dock -->
     <div id="mobileTradeDock" class="fixed bottom-0 left-0 right-0 z-40 bg-bybit-card/98 backdrop-blur-md border-t border-bybit-border shadow-2xl md:hidden">
-        <div class="mobile-trade-header">
+        <div class="p-2 space-y-1.5 mobile-trade-header">
             <div class="mobile-trade-topline">
                 <div class="mobile-trade-topline-left">
                     <span class="text-[10px] font-black text-bybit-yellow">TRADE</span>
@@ -1451,71 +1405,70 @@
                     </button>
                 </div>
             </div>
-
             <div class="mobile-trade-statusline">
                 <span id="mobilePositionCard" class="text-[9px] font-mono text-bybit-muted truncate">Нет позиции</span>
                 <button id="mobilePositionTabBtn" class="trade-quick px-2">POS</button>
                 <button id="mobileOrdersTabBtn" class="trade-quick px-2">ORD</button>
                 <button id="mobileCloseBtn" class="trade-btn trade-close px-3 text-[10px]">CLOSE</button>
             </div>
-
             <div class="mobile-strength-strip" aria-label="Баланс сил">
                 <span class="text-bybit-muted">B/S</span>
                 <div class="mobile-strength-bar"><div id="mobileTradeBuyBar" class="buy"></div><div id="mobileTradeSellBar" class="sell"></div></div>
                 <span id="mobileTradeStrengthValue" class="mobile-strength-value text-bybit-green">3.8x Покупатели</span>
             </div>
-
             <div id="mobileScalpActions" class="mobile-scalp-actions hidden">
                 <button id="mobileScalpLongBtn" class="scalp-action scalp-long">LONG</button>
                 <button id="mobileScalpShortBtn" class="scalp-action scalp-short">SHORT</button>
                 <button id="mobileScalpExpandBtn" class="scalp-expand" title="Открыть настройки сделки">⚙</button>
             </div>
-
-            <div class="mobile-trade-body compact-trade-body">
-                <!-- VOL / leverage -->
-                <div class="compact-control-row compact-vol-row">
-                    <span class="compact-label">VOL</span>
-                    <input id="mobileMargin" class="trade-input compact-margin-input" type="number" min="0" step="0.01" value="5" inputmode="decimal" aria-label="Маржа USDT">
+            <div class="mobile-trade-body space-y-1.5">
+                <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                    <span class="text-[9px] text-bybit-muted shrink-0">Маржа</span>
                     <button class="trade-quick" data-margin-preset="2">2</button>
                     <button class="trade-quick" data-margin-preset="5">5</button>
                     <button class="trade-quick" data-margin-preset="10">10</button>
                     <button class="trade-quick" data-margin-preset="20">20</button>
-                    <button class="trade-quick" data-margin-preset="50">50</button>
-                    <span class="compact-divider"></span>
-                    <span class="compact-label">LEV</span>
-                    <select id="mobileLeverage" class="trade-input compact-leverage-select" aria-label="Плечо"><option>1x</option><option>2x</option><option>3x</option><option>5x</option><option selected>10x</option><option>20x</option></select>
+                    <span class="w-px h-4 bg-bybit-border mx-1"></span>
+                    <span class="text-[9px] text-bybit-muted shrink-0">Плечо</span>
+                    <button class="trade-quick" data-leverage-preset="3">3x</button>
+                    <button class="trade-quick" data-leverage-preset="5">5x</button>
+                    <button class="trade-quick" data-leverage-preset="10">10x</button>
+                    <button class="trade-quick" data-leverage-preset="20">20x</button>
                 </div>
-
-                <!-- Entry / percentage risk -->
-                <div class="compact-risk-row">
-                    <div class="compact-readout"><span>ENTRY</span><b id="mobileCompactEntry">—</b></div>
-                    <div class="compact-percent-field"><span>TP %</span><input id="mobileTPPct" class="risk-pct-input" type="number" min="0" step="0.1" inputmode="decimal" placeholder="2.0"></div>
-                    <div class="compact-percent-field"><span>SL %</span><input id="mobileSLPct" class="risk-pct-input" type="number" min="0" step="0.1" inputmode="decimal" placeholder="1.0"></div>
-                    <select id="mobileOrderType" class="trade-input compact-order-select"><option value="Market">Market</option><option value="Limit">Limit</option></select>
+                <div id="mobileTradePreview" class="trade-preview">
+                    <div><span class="k">Размер</span><span id="mobilePreviewQty" class="v">—</span></div>
+                    <div><span class="k">Номинал</span><span id="mobilePreviewNotional" class="v">—</span></div>
+                    <div><span class="k">TP PnL</span><span id="mobilePreviewTpPnl" class="v">—</span></div>
+                    <div><span class="k">SL PnL</span><span id="mobilePreviewSlPnl" class="v">—</span></div>
                 </div>
-
+                <div class="mobile-trade-row compact">
+                    <input id="mobileMargin" class="trade-input" type="number" min="0" step="0.01" value="5" placeholder="Маржа USDT">
+                    <select id="mobileLeverage" class="trade-input"><option>1x</option><option>2x</option><option>3x</option><option>5x</option><option selected>10x</option><option>20x</option></select>
+                    <select id="mobileOrderType" class="trade-input"><option value="Market">Market</option><option value="Limit">Limit</option></select>
+                </div>
                 <div id="mobileLimitWrap" class="mobile-trade-row two hidden"><input id="mobileLimitPrice" class="trade-input wide" type="number" step="any" placeholder="Limit price"></div>
-
-                <!-- Exact TP / SL + direction -->
-                <div class="compact-price-row">
-                    <div class="compact-price-field"><span>TP</span><input id="mobileTP" class="trade-input" type="number" step="any" placeholder="TP price"></div>
-                    <div class="compact-price-field"><span>SL</span><input id="mobileSL" class="trade-input" type="number" step="any" placeholder="SL price"></div>
-                    <button id="mobilePreviewLong" type="button" class="trade-quick compact-side-preview border-bybit-green/50 text-bybit-green bg-bybit-green/10">LONG</button>
-                    <button id="mobilePreviewShort" type="button" class="trade-quick compact-side-preview">SHORT</button>
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    <span class="text-[9px] text-bybit-muted shrink-0">Направление</span>
+                    <button id="mobilePreviewLong" type="button" class="trade-quick border-bybit-green/50 text-bybit-green bg-bybit-green/10">LONG</button>
+                    <button id="mobilePreviewShort" type="button" class="trade-quick">SHORT</button>
+                    <span id="mobileRiskLinkState" class="text-[8px] text-bybit-muted ml-1 truncate">TP/SL вручную</span>
+                    <span id="mobileRiskRR" class="text-[8px] text-bybit-muted font-black shrink-0">RR —</span>
                 </div>
-
-                <!-- Quick risk actions -->
-                <div class="compact-action-row">
+                <div class="mobile-trade-row two">
+                    <input id="mobileTP" class="trade-input" type="number" step="any" placeholder="TP (optional)">
+                    <input id="mobileSL" class="trade-input" type="number" step="any" placeholder="SL (optional)">
+                </div>
+                <div class="mobile-trade-scroll-row">
+                    <div class="risk-pct-wrap"><span class="risk-pct-label">TP</span><input id="mobileTPPct" class="trade-input risk-pct-input" type="number" min="0" step="0.1" inputmode="decimal" placeholder="%"></div>
+                    <div class="risk-pct-wrap"><span class="risk-pct-label">SL</span><input id="mobileSLPct" class="trade-input risk-pct-input" type="number" min="0" step="0.1" inputmode="decimal" placeholder="%"></div>
                     <button class="trade-quick" data-rr="2">RR 1:2</button>
                     <button class="trade-quick" data-rr="3">RR 1:3</button>
-                    <button class="trade-quick" data-rr="4">RR 1:4</button>
                     <button id="mobileAutoSR" class="trade-quick border-bybit-green/30">AUTO S/R</button>
                     <button id="mobileMultiTpToggle" class="trade-quick border-bybit-green/30">3 TP</button>
                     <button id="mobileAuto3Tp" class="trade-quick border-bybit-green/30">AUTO 3TP</button>
                     <button id="mobileAutoBE" class="trade-quick">BE AUTO</button>
                 </div>
-
-                <div id="mobileMultiTpWrap" class="hidden compact-multi-tp">
+                <div id="mobileMultiTpWrap" class="hidden space-y-1">
                     <div class="mobile-trade-row three">
                         <input id="mobileTP1" class="trade-input" type="number" step="any" placeholder="TP1 · 40%">
                         <input id="mobileTP2" class="trade-input" type="number" step="any" placeholder="TP2 · 35%">
@@ -1527,21 +1480,7 @@
                         <button id="mobileApplyMultiTp" class="trade-quick px-2">APPLY</button>
                     </div>
                 </div>
-
-                <div id="mobileTradePreview" class="trade-preview compact-preview">
-                    <div><span class="k">QTY</span><span id="mobilePreviewQty" class="v">—</span></div>
-                    <div><span class="k">VOL</span><span id="mobilePreviewNotional" class="v">—</span></div>
-                    <div><span class="k">TP PnL</span><span id="mobilePreviewTpPnl" class="v">—</span></div>
-                    <div><span class="k">SL PnL</span><span id="mobilePreviewSlPnl" class="v">—</span></div>
-                </div>
-
-                <div class="compact-risk-state">
-                    <span id="mobileRiskLinkState">TP/SL вручную</span>
-                    <span id="mobileRiskRR">RR —</span>
-                </div>
-
-                <!-- Entry buttons intentionally unchanged -->
-                <div class="mobile-trade-grid compact-entry-buttons">
+                <div class="mobile-trade-grid">
                     <button id="mobileLongBtn" class="trade-btn trade-long">LONG</button>
                     <button id="mobileShortBtn" class="trade-btn trade-short">SHORT</button>
                 </div>
@@ -3357,7 +3296,6 @@
             set('mobilePreviewNotional', notional ? `${formatVolumeUSD(notional)}` : '—');
             set('mobilePreviewTpPnl', tp ? `${tpPnl >= 0 ? '+' : ''}${tpPnl.toFixed(3)} USDT` : '—');
             set('mobilePreviewSlPnl', sl ? `${slPnl >= 0 ? '+' : ''}${slPnl.toFixed(3)} USDT` : '—');
-            set('mobileCompactEntry', price > 0 ? formatPrice(price) : '—');
             if (tradeState.position) { const m=document.getElementById('mobilePosMark'); if(m) m.textContent=formatPrice(livePrice || tradeState.position.markPrice || 0); }
             const tpEl=document.getElementById('mobilePreviewTpPnl'), slEl=document.getElementById('mobilePreviewSlPnl');
             if(tpEl) tpEl.className='v '+(tpPnl>=0?'text-bybit-green':'text-bybit-red');
