@@ -4706,6 +4706,7 @@
 
             if (candleMarkers) candleMarkers.setMarkers(markers);
             renderPatternPanel(patternsList);
+            renderPatternCenter(patternsList);
 
             updateIndicators();
         }
@@ -5172,30 +5173,61 @@
         function detectAdvancedPatterns(candles, srZones) {
             const markers = [], patterns = []; const n = candles.length;
             if (n < 12) return { markers, patterns };
-            const add=(name,type,desc,candle,position,shape='circle')=>{ const color=type==='bullish'?'#0ecb81':type==='bearish'?'#f6465d':'#f7a600'; if(candle) markers.push({time:candle.time,position,color,shape,text:name}); patterns.push({name,type,desc}); };
-            const pct=(a,b)=>Math.abs(a-b)/Math.max(Math.abs(a),1e-12), bodyOf=c=>Math.abs(c.close-c.open), rangeOf=c=>Math.max(c.high-c.low,1e-12), upperWick=c=>c.high-Math.max(c.open,c.close), lowerWick=c=>Math.min(c.open,c.close)-c.low, isBull=c=>c.close>c.open, isBear=c=>c.close<c.open;
-            const last=candles[n-1], prev=candles[n-2], p2=candles[n-3], avgBody=candles.slice(-20).reduce((s,c)=>s+bodyOf(c),0)/Math.max(1,Math.min(20,n));
+            const seen = new Map();
+            const add=(name,type,desc,candle,position,shape='circle')=>{
+                if(candle) markers.push({time:candle.time,position,color:type==='bullish'?'#0ecb81':type==='bearish'?'#f6465d':'#f7a600',shape,text:name});
+                const key=name;
+                const prev=seen.get(key);
+                if(!prev || (candle && candle.time>prev.candle.time)) seen.set(key,{name,type,desc,candle});
+            };
+            const pct=(a,b)=>Math.abs(a-b)/Math.max(Math.abs(a),1e-12);
+            const bodyOf=c=>Math.abs(c.close-c.open);
+            const rangeOf=c=>Math.max(c.high-c.low,1e-12);
+            const upperWick=c=>c.high-Math.max(c.open,c.close);
+            const lowerWick=c=>Math.min(c.open,c.close)-c.low;
+            const isBull=c=>c.close>c.open, isBear=c=>c.close<c.open;
+            const avgBodyAt=(i,lookback=20)=>{
+                const from=Math.max(0,i-lookback), to=Math.max(from,i);
+                return candles.slice(from,to).reduce((s,c)=>s+bodyOf(c),0)/Math.max(1,to-from);
+            };
+
+            // Scan recent history, not only the last candle. This makes the Pattern Center
+            // useful even when a pattern formed a few candles ago.
+            const scanFrom=Math.max(2,n-100);
+            for(let i=scanFrom;i<n;i++){
+                const last=candles[i], prev=candles[i-1], p2=i>=2?candles[i-2]:null;
+                const avgBody=avgBodyAt(i);
+                const body=Math.max(bodyOf(last),last.close*1e-8), uw=upperWick(last), lw=lowerWick(last);
+                if(lw>body*2&&uw<body*.8) add('Молот (Hammer)','bullish','Длинная нижняя тень — возможное отвержение снижения.',last,'belowBar');
+                if(uw>body*2&&lw<body*.8) add('Падающая звезда (Shooting Star)','bearish','Длинная верхняя тень — возможное отвержение роста.',last,'aboveBar');
+                if(body/rangeOf(last)<.1) add('Доджи (Doji)','neutral','Открытие и закрытие почти совпадают — нерешительность.',last,'aboveBar');
+                if(isBear(prev)&&isBull(last)&&last.open<=prev.close&&last.close>=prev.open&&bodyOf(last)>bodyOf(prev)*.9) add('Бычье поглощение (Bullish Engulfing)','bullish','Бычья свеча поглощает тело предыдущей медвежьей.',last,'belowBar','arrowUp');
+                if(isBull(prev)&&isBear(last)&&last.open>=prev.close&&last.close<=prev.open&&bodyOf(last)>bodyOf(prev)*.9) add('Медвежье поглощение (Bearish Engulfing)','bearish','Медвежья свеча поглощает тело предыдущей бычьей.',last,'aboveBar','arrowDown');
+                if(p2&&isBear(p2)&&bodyOf(p2)>avgBody*.8&&bodyOf(prev)<bodyOf(p2)*.55&&isBull(last)&&last.close>(p2.open+p2.close)/2) add('Утренняя звезда (Morning Star)','bullish','Трёхсвечная разворотная структура после снижения.',last,'belowBar','arrowUp');
+                if(p2&&isBull(p2)&&bodyOf(p2)>avgBody*.8&&bodyOf(prev)<bodyOf(p2)*.55&&isBear(last)&&last.close<(p2.open+p2.close)/2) add('Вечерняя звезда (Evening Star)','bearish','Трёхсвечная разворотная структура после роста.',last,'aboveBar','arrowDown');
+                if(p2&&isBull(p2)&&isBull(prev)&&isBull(last)&&prev.close>p2.close&&last.close>prev.close&&lowerWick(prev)<bodyOf(prev)*.7&&lowerWick(last)<bodyOf(last)*.7) add('Три белых солдата (Three White Soldiers)','bullish','Три последовательные сильные бычьи свечи.',last,'belowBar','arrowUp');
+                if(p2&&isBear(p2)&&isBear(prev)&&isBear(last)&&prev.close<p2.close&&last.close<prev.close&&upperWick(prev)<bodyOf(prev)*.7&&upperWick(last)<bodyOf(last)*.7) add('Три чёрные вороны (Three Black Crows)','bearish','Три последовательные сильные медвежьи свечи.',last,'aboveBar','arrowDown');
+                if(last.high<prev.high&&last.low>prev.low) add('Внутренний бар (Inside Bar)','neutral','Текущая свеча полностью внутри диапазона предыдущей.',last,'aboveBar');
+            }
+
             const swingLows=[], swingHighs=[];
-            for(let i=3;i<n-3;i++){ if(candles[i].low<candles[i-1].low&&candles[i].low<candles[i-2].low&&candles[i].low<candles[i+1].low&&candles[i].low<candles[i+2].low)swingLows.push({index:i,price:candles[i].low,time:candles[i].time}); if(candles[i].high>candles[i-1].high&&candles[i].high>candles[i-2].high&&candles[i].high>candles[i+1].high&&candles[i].high>candles[i+2].high)swingHighs.push({index:i,price:candles[i].high,time:candles[i].time}); }
-            if(swingLows.length>=3){ const [l1,l2,l3]=swingLows.slice(-3); if(pct(l1.price,l2.price)<.015&&pct(l2.price,l3.price)<.015)add('Тройное Дно (Triple Bottom)','bullish',`Три близких минимума около $${formatPrice(l3.price)}.`,l3,'belowBar','arrowUp'); else if(pct(l1.price,l2.price)<.015&&(l2.index-l1.index)>4)add('Двойное Дно (Double Bottom)','bullish',`Два близких минимума около $${formatPrice(l2.price)}.`,l2,'belowBar','arrowUp'); }
-            else if(swingLows.length>=2){const [l1,l2]=swingLows.slice(-2);if(pct(l1.price,l2.price)<.015&&(l2.index-l1.index)>4)add('Двойное Дно (Double Bottom)','bullish',`Два близких минимума около $${formatPrice(l2.price)}.`,l2,'belowBar','arrowUp');}
-            if(swingHighs.length>=2){const [h1,h2]=swingHighs.slice(-2);if(pct(h1.price,h2.price)<.015&&(h2.index-h1.index)>4)add('Двойная Вершина (Double Top)','bearish',`Два близких максимума около $${formatPrice(h2.price)}.`,h2,'aboveBar','arrowDown');}
-            if(swingHighs.length>=3){const [s1,h,s2]=swingHighs.slice(-3);if(h.price>s1.price&&h.price>s2.price&&pct(s1.price,s2.price)<.02)add('Голова и Плечи (Head & Shoulders)','bearish','Центральный пик выше двух боковых.',h,'aboveBar','square');}
-            if(swingLows.length>=3){const [s1,h,s2]=swingLows.slice(-3);if(h.price<s1.price&&h.price<s2.price&&pct(s1.price,s2.price)<.02)add('Перевёрнутая ГиП (Inverse H&S)','bullish','Центральное дно ниже двух боковых.',h,'belowBar','square');}
-            const body=Math.max(bodyOf(last),last.close*1e-8),uw=upperWick(last),lw=lowerWick(last);
-            if(lw>body*2&&uw<body*.8)add('Молот (Hammer)','bullish','Длинная нижняя тень — возможное отвержение снижения.',last,'belowBar');
-            if(uw>body*2&&lw<body*.8)add('Падающая звезда (Shooting Star)','bearish','Длинная верхняя тень — возможное отвержение роста.',last,'aboveBar');
-            if(body/rangeOf(last)<.1)add('Доджи (Doji)','neutral','Открытие и закрытие почти совпадают — нерешительность.',last,'aboveBar');
-            if(isBear(prev)&&isBull(last)&&last.open<=prev.close&&last.close>=prev.open&&bodyOf(last)>bodyOf(prev)*.9)add('Бычье поглощение (Bullish Engulfing)','bullish','Бычья свеча поглощает тело предыдущей медвежьей.',last,'belowBar','arrowUp');
-            if(isBull(prev)&&isBear(last)&&last.open>=prev.close&&last.close<=prev.open&&bodyOf(last)>bodyOf(prev)*.9)add('Медвежье поглощение (Bearish Engulfing)','bearish','Медвежья свеча поглощает тело предыдущей бычьей.',last,'aboveBar','arrowDown');
-            if(isBear(p2)&&bodyOf(p2)>avgBody*.8&&bodyOf(prev)<bodyOf(p2)*.45&&isBull(last)&&last.close>(p2.open+p2.close)/2)add('Утренняя звезда (Morning Star)','bullish','Трёхсвечная разворотная структура после снижения.',last,'belowBar','arrowUp');
-            if(isBull(p2)&&bodyOf(p2)>avgBody*.8&&bodyOf(prev)<bodyOf(p2)*.45&&isBear(last)&&last.close<(p2.open+p2.close)/2)add('Вечерняя звезда (Evening Star)','bearish','Трёхсвечная разворотная структура после роста.',last,'aboveBar','arrowDown');
-            if(isBull(p2)&&isBull(prev)&&isBull(last)&&prev.close>p2.close&&last.close>prev.close&&lowerWick(prev)<bodyOf(prev)*.7&&lowerWick(last)<bodyOf(last)*.7)add('Три белых солдата (Three White Soldiers)','bullish','Три последовательные сильные бычьи свечи.',last,'belowBar','arrowUp');
-            if(isBear(p2)&&isBear(prev)&&isBear(last)&&prev.close<p2.close&&last.close<prev.close&&upperWick(prev)<bodyOf(prev)*.7&&upperWick(last)<bodyOf(last)*.7)add('Три чёрные вороны (Three Black Crows)','bearish','Три последовательные сильные медвежьи свечи.',last,'aboveBar','arrowDown');
-            if(last.high<prev.high&&last.low>prev.low)add('Внутренний бар (Inside Bar)','neutral','Текущая свеча полностью внутри диапазона предыдущей.',last,'aboveBar');
-            const hs=swingHighs.slice(-3).map(x=>x.price),ls=swingLows.slice(-3).map(x=>x.price);
-            if(hs.length>=3&&ls.length>=3){ if(hs[0]<hs[1]&&hs[1]<hs[2]&&ls[0]<ls[1]&&ls[1]<ls[2])add('Восходящий тренд','bullish','Последовательность повышающихся максимумов и минимумов.',last,'belowBar'); if(hs[0]>hs[1]&&hs[1]>hs[2]&&ls[0]>ls[1]&&ls[1]>ls[2])add('Нисходящий тренд','bearish','Последовательность снижающихся максимумов и минимумов.',last,'aboveBar'); if(hs[0]>hs[1]&&hs[1]>hs[2]&&ls[0]<ls[1]&&ls[1]<ls[2])add('Сходящийся треугольник','neutral','Максимумы снижаются, минимумы повышаются — сжатие диапазона.',last,'aboveBar'); }
-            return { markers, patterns };
+            for(let i=3;i<n-3;i++){
+                if(candles[i].low<candles[i-1].low&&candles[i].low<candles[i-2].low&&candles[i].low<candles[i+1].low&&candles[i].low<candles[i+2].low) swingLows.push({index:i,price:candles[i].low,time:candles[i].time});
+                if(candles[i].high>candles[i-1].high&&candles[i].high>candles[i-2].high&&candles[i].high>candles[i+1].high&&candles[i].high>candles[i+2].high) swingHighs.push({index:i,price:candles[i].high,time:candles[i].time});
+            }
+            const recentLows=swingLows.filter(x=>x.index>=scanFrom-5), recentHighs=swingHighs.filter(x=>x.index>=scanFrom-5);
+            if(swingLows.length>=2){ const [l1,l2]=swingLows.slice(-2); if(pct(l1.price,l2.price)<.02&&(l2.index-l1.index)>3) add('Двойное Дно (Double Bottom)','bullish',`Два близких минимума около $${formatPrice(l2.price)}.`,l2,'belowBar','arrowUp'); }
+            if(swingLows.length>=3){ const [l1,l2,l3]=swingLows.slice(-3); if(pct(l1.price,l2.price)<.02&&pct(l2.price,l3.price)<.02) add('Тройное Дно (Triple Bottom)','bullish',`Три близких минимума около $${formatPrice(l3.price)}.`,l3,'belowBar','arrowUp'); }
+            if(swingHighs.length>=2){ const [h1,h2]=swingHighs.slice(-2); if(pct(h1.price,h2.price)<.02&&(h2.index-h1.index)>3) add('Двойная Вершина (Double Top)','bearish',`Два близких максимума около $${formatPrice(h2.price)}.`,h2,'aboveBar','arrowDown'); }
+            if(swingHighs.length>=3){ const [s1,h,s2]=swingHighs.slice(-3); if(h.price>s1.price&&h.price>s2.price&&pct(s1.price,s2.price)<.025) add('Голова и Плечи (Head & Shoulders)','bearish','Центральный пик выше двух боковых.',h,'aboveBar','square'); }
+            if(swingLows.length>=3){ const [s1,h,s2]=swingLows.slice(-3); if(h.price<s1.price&&h.price<s2.price&&pct(s1.price,s2.price)<.025) add('Перевёрнутая ГиП (Inverse H&S)','bullish','Центральное дно ниже двух боковых.',h,'belowBar','square'); }
+            const hs=recentHighs.slice(-3).map(x=>x.price), ls=recentLows.slice(-3).map(x=>x.price);
+            if(hs.length>=3&&ls.length>=3){
+                if(hs[0]<hs[1]&&hs[1]<hs[2]&&ls[0]<ls[1]&&ls[1]<ls[2]) add('Восходящий тренд','bullish','Последовательность повышающихся максимумов и минимумов.',candles[n-1],'belowBar');
+                if(hs[0]>hs[1]&&hs[1]>hs[2]&&ls[0]>ls[1]&&ls[1]>ls[2]) add('Нисходящий тренд','bearish','Последовательность снижающихся максимумов и минимумов.',candles[n-1],'aboveBar');
+                if(hs[0]>hs[1]&&hs[1]>hs[2]&&ls[0]<ls[1]&&ls[1]<ls[2]) add('Сходящийся треугольник','neutral','Максимумы снижаются, минимумы повышаются — сжатие диапазона.',candles[n-1],'aboveBar');
+            }
+            return {markers,patterns:Array.from(seen.values()).map(x=>({name:x.name,type:x.type,desc:x.desc}))};
         }
 
         const PATTERN_REFERENCE=[['Двойное Дно','bullish','Два близких минимума; возможный бычий разворот.'],['Тройное Дно','bullish','Три близких минимума.'],['Двойная Вершина','bearish','Два близких максимума; возможный разворот вниз.'],['Голова и Плечи','bearish','Центральный пик выше двух боковых.'],['Перевёрнутая ГиП','bullish','Центральное дно ниже двух боковых.'],['Молот','bullish','Длинная нижняя тень и небольшое тело.'],['Падающая звезда','bearish','Длинная верхняя тень и небольшое тело.'],['Доджи','neutral','Открытие и закрытие почти совпадают.'],['Бычье поглощение','bullish','Бычье тело поглощает предыдущее медвежье.'],['Медвежье поглощение','bearish','Медвежье тело поглощает предыдущее бычье.'],['Утренняя звезда','bullish','Трёхсвечный разворот после снижения.'],['Вечерняя звезда','bearish','Трёхсвечный разворот после роста.'],['Три белых солдата','bullish','Три последовательные сильные бычьи свечи.'],['Три чёрные вороны','bearish','Три последовательные сильные медвежьи свечи.'],['Внутренний бар','neutral','Свеча полностью внутри предыдущей.'],['Сходящийся треугольник','neutral','Снижающиеся максимумы и повышающиеся минимумы.'],['Восходящий тренд','bullish','Повышающиеся максимумы и минимумы.'],['Нисходящий тренд','bearish','Снижающиеся максимумы и минимумы.']];
