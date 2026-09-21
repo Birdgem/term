@@ -1,11 +1,12 @@
-# Trading Terminal Stage 5.31.3 — Patterns 10
+# Trading Terminal Stage 5.31.4 — Patterns 10 Visible
 
-Base: Stage 5.31.2 Pattern Center Clean.
+Base: Stage 5.31.3.
 
-Pattern behavior:
-- Pattern Center continues to analyze/retain the full 100-candle history.
-- Chart pattern markers are limited to the most recent 10 candles.
-- Only the latest occurrence of each pattern type is shown on the chart.
-- Maximum 7 pattern markers on the chart.
-- Volume anomaly `V` markers remain separate.
-- Trading logic, S/R, indicators and trade controls are not intentionally changed.
+Fix:
+- The 10-candle chart filter is now applied inside `detectAdvancedPatterns()` itself.
+- Pattern Center still receives the full 100-candle history.
+- Chart markers are only the latest pattern instance per type found in the last 10 candles.
+- Maximum 7 pattern markers.
+- Markers use short readable labels (IB, BE, DB, etc.) instead of long pattern names.
+- Markers are sorted chronologically before being sent to Lightweight Charts.
+- Volume anomaly V markers remain separate.
