@@ -5092,7 +5092,7 @@
                     lineWidth: 1,
                     lineStyle: LightweightCharts.LineStyle.Dashed,
                     axisLabelVisible: true,
-                    title: `${isRes ? 'Сопротивление' : 'Поддержка'} (${zone.count}x)`,
+                    title: `${isRes ? 'R' : 'S'} (${zone.count}x)`,
                 });
                 srPriceLines.push(line);
             });
@@ -5202,7 +5202,7 @@
                     <div class="flex items-center justify-between p-2 rounded-lg bg-bybit-bg border border-bybit-border">
                         <div class="flex items-center space-x-2">
                             <span class="w-2 h-2 rounded-full ${isRes ? 'bg-bybit-red' : 'bg-bybit-green'}"></span>
-                            <span class="text-white">${isRes ? 'Сопротивление' : 'Поддержка'}</span>
+                            <span class="text-white">${isRes ? 'R' : 'S'}</span>
                         </div>
                         <div class="text-right">
                             <div class="font-bold ${isRes ? 'text-bybit-red' : 'text-bybit-green'}">$${formatPrice(z.avgPrice)}</div>
