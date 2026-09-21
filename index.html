@@ -895,7 +895,7 @@
         }
         @media (max-width: 767px) {
             #chartsArea.chart-mode-compact #priceChartContainer {
-                height:150px !important; min-height:150px !important;
+                height:190px !important; min-height:190px !important;
             }
             #chartsArea.chart-mode-compact #volumeChartContainer,
             #chartsArea.chart-mode-compact #rsiChartContainer,
@@ -2577,7 +2577,7 @@
                 compactBtn?.setAttribute('aria-selected', chartViewMode === 'compact' ? 'true' : 'false');
 
                 const compact = chartViewMode === 'compact';
-                const height = compact ? '150px' : (document.body.classList.contains('mobile-trade-collapsed') ? '240px' : '220px');
+                const height = compact ? '190px' : (document.body.classList.contains('mobile-trade-collapsed') ? '240px' : '220px');
                 if (window.innerWidth < 768) {
                     pricePanel.style.height = height;
                     pricePanel.style.minHeight = height;
@@ -4986,7 +4986,7 @@
             const isMobile = window.innerWidth < 768;
             if (isMobile) {
                 const compact = chartViewMode === 'compact';
-                const height = compact ? '150px' : (document.body.classList.contains('mobile-trade-collapsed') ? '240px' : '220px');
+                const height = compact ? '190px' : (document.body.classList.contains('mobile-trade-collapsed') ? '240px' : '220px');
                 pricePanel.style.height = height;
                 pricePanel.style.minHeight = height;
             } else if (!volumeVisible && !rsiVisible && !macdVisible) {
