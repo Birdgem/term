@@ -902,6 +902,10 @@
         .chart-view-tab.active {
             color:#f7a600; border-color:rgba(247,166,0,.55); background:rgba(247,166,0,.08);
         }
+        .pattern-center-btn { position:relative; }
+        .pattern-center-badge { display:inline-flex; min-width:15px; height:15px; align-items:center; justify-content:center; margin-left:4px; padding:0 3px; border-radius:999px; background:#f7a600; color:#111; font-size:8px; font-weight:900; font-family:ui-monospace,monospace; }
+        .pattern-center-tab { flex:1; padding:8px 12px; font-size:10px; font-weight:800; color:#8b93a7; border-bottom:2px solid transparent; }
+        .pattern-center-tab.active { color:#f7a600; border-bottom-color:#f7a600; background:rgba(247,166,0,.05); }
         @media (max-width: 767px) {
             #chartsArea.chart-mode-compact #priceChartContainer {
                 height:190px !important; min-height:190px !important;
@@ -1279,6 +1283,7 @@
             <div id="chartViewTabs" class="chart-view-tabs" role="tablist" aria-label="Режим графика">
                 <button id="chartViewFullBtn" class="chart-view-tab active" role="tab" aria-selected="true">ПОЛНЫЙ ГРАФИК</button>
                 <button id="chartViewCompactBtn" class="chart-view-tab" role="tab" aria-selected="false">КОМПАКТНЫЙ</button>
+                <button id="openPatternsBtn" class="chart-view-tab pattern-center-btn" type="button" title="Обнаруженные паттерны и справка">ПАТТЕРНЫ <span id="patternCenterBadge" class="pattern-center-badge">0</span></button>
             </div>
             <div id="chartsArea" class="chart-mode-full">
                 <div id="priceChartContainer" class="chart-panel">
@@ -1679,6 +1684,20 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Pattern Center Modal -->
+    <div id="patternCenterModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-bybit-card border border-bybit-border rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-3.5 border-b border-bybit-border flex items-center justify-between bg-bybit-panel shrink-0">
+                <div class="flex items-center gap-2"><i data-lucide="scan-search" class="w-4 h-4 text-bybit-yellow"></i><h3 class="font-bold text-white text-sm sm:text-base">Паттерны</h3><span id="patternCenterHeaderBadge" class="bg-bybit-yellow/10 border border-bybit-yellow/30 text-bybit-yellow text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold">0</span></div>
+                <button id="closePatternsBtn" class="text-bybit-muted hover:text-white p-1 rounded-lg hover:bg-bybit-hover transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="flex border-b border-bybit-border bg-bybit-panel shrink-0"><button id="patternCenterDetectedTab" class="pattern-center-tab active" type="button">Обнаруженные</button><button id="patternCenterReferenceTab" class="pattern-center-tab" type="button">Справка</button></div>
+            <div id="patternCenterDetectedPane" class="p-4 sm:p-5 overflow-y-auto space-y-3"><div class="text-[10px] text-bybit-muted uppercase tracking-wider">Текущий график · последние данные</div><div id="patternCenterDetectedList" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"><div class="text-bybit-muted italic text-center py-6 sm:col-span-2">Паттерны не обнаружены</div></div></div>
+            <div id="patternCenterReferencePane" class="hidden p-4 sm:p-5 overflow-y-auto space-y-3"><div class="text-[10px] text-bybit-muted uppercase tracking-wider">Краткая справка по распознаваемым паттернам</div><div id="patternReferenceList" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div></div>
+            <div class="p-3 bg-bybit-panel border-t border-bybit-border flex justify-end shrink-0"><button id="closePatternsModalBtn" class="bg-bybit-yellow hover:bg-amber-500 text-black font-bold px-4 py-1.5 rounded-xl text-xs transition-colors">Закрыть</button></div>
         </div>
     </div>
 
@@ -2756,6 +2775,7 @@
             document.getElementById('openHelpBtn').addEventListener('click', () => helpModal.classList.remove('hidden'));
             document.getElementById('closeHelpBtn').addEventListener('click', () => helpModal.classList.add('hidden'));
             document.getElementById('closeHelpModalBtn').addEventListener('click', () => helpModal.classList.add('hidden'));
+            setupPatternCenter();
         }
 
 
@@ -5150,91 +5170,38 @@
         }
 
         function detectAdvancedPatterns(candles, srZones) {
-            const markers = [];
-            const patterns = [];
-            const n = candles.length;
-            if (n < 30) return { markers, patterns };
-
-            const last = candles[n - 1];
-
-            const swingLows = [];
-            const swingHighs = [];
-            for (let i = 3; i < n - 3; i++) {
-                if (candles[i].low < candles[i-1].low && candles[i].low < candles[i-2].low &&
-                    candles[i].low < candles[i+1].low && candles[i].low < candles[i+2].low) {
-                    swingLows.push({ index: i, price: candles[i].low, time: candles[i].time });
-                }
-                if (candles[i].high > candles[i-1].high && candles[i].high > candles[i-2].high &&
-                    candles[i].high > candles[i+1].high && candles[i].high > candles[i+2].high) {
-                    swingHighs.push({ index: i, price: candles[i].high, time: candles[i].time });
-                }
-            }
-
-            if (swingLows.length >= 3) {
-                const l1 = swingLows[swingLows.length - 3];
-                const l2 = swingLows[swingLows.length - 2];
-                const l3 = swingLows[swingLows.length - 1];
-
-                if (Math.abs(l1.price - l2.price) / l1.price < 0.015 && Math.abs(l2.price - l3.price) / l2.price < 0.015) {
-                    markers.push({ time: l3.time, position: 'belowBar', color: '#0ecb81', shape: 'arrowUp', text: 'Тройное Дно' });
-                    patterns.push({ name: 'Тройное Дно (Triple Bottom)', type: 'bullish', desc: `Три дна около $${formatPrice(l3.price)}. Сильный бычий разворот.` });
-                }
-            } else if (swingLows.length >= 2) {
-                const l1 = swingLows[swingLows.length - 2];
-                const l2 = swingLows[swingLows.length - 1];
-                if (Math.abs(l1.price - l2.price) / l1.price < 0.015 && (l2.index - l1.index) > 4) {
-                    markers.push({ time: l2.time, position: 'belowBar', color: '#0ecb81', shape: 'arrowUp', text: 'Двойное Дно' });
-                    patterns.push({ name: 'Двойное Дно (Double Bottom)', type: 'bullish', desc: `Двойное дно у $${formatPrice(l2.price)}. Разворот вверх.` });
-                }
-            }
-
-            if (swingHighs.length >= 2) {
-                const h1 = swingHighs[swingHighs.length - 2];
-                const h2 = swingHighs[swingHighs.length - 1];
-                if (Math.abs(h1.price - h2.price) / h1.price < 0.015 && (h2.index - h1.index) > 4) {
-                    markers.push({ time: h2.time, position: 'aboveBar', color: '#f6465d', shape: 'arrowDown', text: 'Двойная Вершина' });
-                    patterns.push({ name: 'Двойная Вершина (Double Top)', type: 'bearish', desc: `Два пика у $${formatPrice(h2.price)}. Сигнал падения.` });
-                }
-            }
-
-            if (swingHighs.length >= 3) {
-                const s1 = swingHighs[swingHighs.length - 3];
-                const head = swingHighs[swingHighs.length - 2];
-                const s2 = swingHighs[swingHighs.length - 1];
-
-                if (head.price > s1.price && head.price > s2.price && Math.abs(s1.price - s2.price) / s1.price < 0.02) {
-                    markers.push({ time: head.time, position: 'aboveBar', color: '#f6465d', shape: 'square', text: 'Голова и Плечи' });
-                    patterns.push({ name: 'Голова и Плечи (Head & Shoulders)', type: 'bearish', desc: `Классический паттерн ГиП с вершиной $${formatPrice(head.price)}.` });
-                }
-            }
-
-            if (swingLows.length >= 3) {
-                const s1 = swingLows[swingLows.length - 3];
-                const head = swingLows[swingLows.length - 2];
-                const s2 = swingLows[swingLows.length - 1];
-
-                if (head.price < s1.price && head.price < s2.price && Math.abs(s1.price - s2.price) / s1.price < 0.02) {
-                    markers.push({ time: head.time, position: 'belowBar', color: '#0ecb81', shape: 'square', text: 'Перевернутая ГиП' });
-                    patterns.push({ name: 'Перевернутая ГиП (Inv. H&S)', type: 'bullish', desc: `Бычий паттерн с локальным дном $${formatPrice(head.price)}.` });
-                }
-            }
-
-            const body = Math.abs(last.close - last.open);
-            const upperWick = last.high - Math.max(last.open, last.close);
-            const lowerWick = Math.min(last.open, last.close) - last.low;
-
-            if (lowerWick > body * 2 && upperWick < body * 0.8) {
-                markers.push({ time: last.time, position: 'belowBar', color: '#0ecb81', shape: 'circle', text: 'Молот' });
-                patterns.push({ name: 'Бычий Молот / Pin Bar', type: 'bullish', desc: 'Длинная нижняя тень. Резкий откуп цены снизу.' });
-            }
-
-            if (upperWick > body * 2 && lowerWick < body * 0.8) {
-                markers.push({ time: last.time, position: 'aboveBar', color: '#f6465d', shape: 'circle', text: 'Падающая Звезда' });
-                patterns.push({ name: 'Падающая Звезда (Shooting Star)', type: 'bearish', desc: 'Верхнее отвержение цены. Давление продавцов.' });
-            }
-
+            const markers = [], patterns = []; const n = candles.length;
+            if (n < 12) return { markers, patterns };
+            const add=(name,type,desc,candle,position,shape='circle')=>{ const color=type==='bullish'?'#0ecb81':type==='bearish'?'#f6465d':'#f7a600'; if(candle) markers.push({time:candle.time,position,color,shape,text:name}); patterns.push({name,type,desc}); };
+            const pct=(a,b)=>Math.abs(a-b)/Math.max(Math.abs(a),1e-12), bodyOf=c=>Math.abs(c.close-c.open), rangeOf=c=>Math.max(c.high-c.low,1e-12), upperWick=c=>c.high-Math.max(c.open,c.close), lowerWick=c=>Math.min(c.open,c.close)-c.low, isBull=c=>c.close>c.open, isBear=c=>c.close<c.open;
+            const last=candles[n-1], prev=candles[n-2], p2=candles[n-3], avgBody=candles.slice(-20).reduce((s,c)=>s+bodyOf(c),0)/Math.max(1,Math.min(20,n));
+            const swingLows=[], swingHighs=[];
+            for(let i=3;i<n-3;i++){ if(candles[i].low<candles[i-1].low&&candles[i].low<candles[i-2].low&&candles[i].low<candles[i+1].low&&candles[i].low<candles[i+2].low)swingLows.push({index:i,price:candles[i].low,time:candles[i].time}); if(candles[i].high>candles[i-1].high&&candles[i].high>candles[i-2].high&&candles[i].high>candles[i+1].high&&candles[i].high>candles[i+2].high)swingHighs.push({index:i,price:candles[i].high,time:candles[i].time}); }
+            if(swingLows.length>=3){ const [l1,l2,l3]=swingLows.slice(-3); if(pct(l1.price,l2.price)<.015&&pct(l2.price,l3.price)<.015)add('Тройное Дно (Triple Bottom)','bullish',`Три близких минимума около $${formatPrice(l3.price)}.`,l3,'belowBar','arrowUp'); else if(pct(l1.price,l2.price)<.015&&(l2.index-l1.index)>4)add('Двойное Дно (Double Bottom)','bullish',`Два близких минимума около $${formatPrice(l2.price)}.`,l2,'belowBar','arrowUp'); }
+            else if(swingLows.length>=2){const [l1,l2]=swingLows.slice(-2);if(pct(l1.price,l2.price)<.015&&(l2.index-l1.index)>4)add('Двойное Дно (Double Bottom)','bullish',`Два близких минимума около $${formatPrice(l2.price)}.`,l2,'belowBar','arrowUp');}
+            if(swingHighs.length>=2){const [h1,h2]=swingHighs.slice(-2);if(pct(h1.price,h2.price)<.015&&(h2.index-h1.index)>4)add('Двойная Вершина (Double Top)','bearish',`Два близких максимума около $${formatPrice(h2.price)}.`,h2,'aboveBar','arrowDown');}
+            if(swingHighs.length>=3){const [s1,h,s2]=swingHighs.slice(-3);if(h.price>s1.price&&h.price>s2.price&&pct(s1.price,s2.price)<.02)add('Голова и Плечи (Head & Shoulders)','bearish','Центральный пик выше двух боковых.',h,'aboveBar','square');}
+            if(swingLows.length>=3){const [s1,h,s2]=swingLows.slice(-3);if(h.price<s1.price&&h.price<s2.price&&pct(s1.price,s2.price)<.02)add('Перевёрнутая ГиП (Inverse H&S)','bullish','Центральное дно ниже двух боковых.',h,'belowBar','square');}
+            const body=Math.max(bodyOf(last),last.close*1e-8),uw=upperWick(last),lw=lowerWick(last);
+            if(lw>body*2&&uw<body*.8)add('Молот (Hammer)','bullish','Длинная нижняя тень — возможное отвержение снижения.',last,'belowBar');
+            if(uw>body*2&&lw<body*.8)add('Падающая звезда (Shooting Star)','bearish','Длинная верхняя тень — возможное отвержение роста.',last,'aboveBar');
+            if(body/rangeOf(last)<.1)add('Доджи (Doji)','neutral','Открытие и закрытие почти совпадают — нерешительность.',last,'aboveBar');
+            if(isBear(prev)&&isBull(last)&&last.open<=prev.close&&last.close>=prev.open&&bodyOf(last)>bodyOf(prev)*.9)add('Бычье поглощение (Bullish Engulfing)','bullish','Бычья свеча поглощает тело предыдущей медвежьей.',last,'belowBar','arrowUp');
+            if(isBull(prev)&&isBear(last)&&last.open>=prev.close&&last.close<=prev.open&&bodyOf(last)>bodyOf(prev)*.9)add('Медвежье поглощение (Bearish Engulfing)','bearish','Медвежья свеча поглощает тело предыдущей бычьей.',last,'aboveBar','arrowDown');
+            if(isBear(p2)&&bodyOf(p2)>avgBody*.8&&bodyOf(prev)<bodyOf(p2)*.45&&isBull(last)&&last.close>(p2.open+p2.close)/2)add('Утренняя звезда (Morning Star)','bullish','Трёхсвечная разворотная структура после снижения.',last,'belowBar','arrowUp');
+            if(isBull(p2)&&bodyOf(p2)>avgBody*.8&&bodyOf(prev)<bodyOf(p2)*.45&&isBear(last)&&last.close<(p2.open+p2.close)/2)add('Вечерняя звезда (Evening Star)','bearish','Трёхсвечная разворотная структура после роста.',last,'aboveBar','arrowDown');
+            if(isBull(p2)&&isBull(prev)&&isBull(last)&&prev.close>p2.close&&last.close>prev.close&&lowerWick(prev)<bodyOf(prev)*.7&&lowerWick(last)<bodyOf(last)*.7)add('Три белых солдата (Three White Soldiers)','bullish','Три последовательные сильные бычьи свечи.',last,'belowBar','arrowUp');
+            if(isBear(p2)&&isBear(prev)&&isBear(last)&&prev.close<p2.close&&last.close<prev.close&&upperWick(prev)<bodyOf(prev)*.7&&upperWick(last)<bodyOf(last)*.7)add('Три чёрные вороны (Three Black Crows)','bearish','Три последовательные сильные медвежьи свечи.',last,'aboveBar','arrowDown');
+            if(last.high<prev.high&&last.low>prev.low)add('Внутренний бар (Inside Bar)','neutral','Текущая свеча полностью внутри диапазона предыдущей.',last,'aboveBar');
+            const hs=swingHighs.slice(-3).map(x=>x.price),ls=swingLows.slice(-3).map(x=>x.price);
+            if(hs.length>=3&&ls.length>=3){ if(hs[0]<hs[1]&&hs[1]<hs[2]&&ls[0]<ls[1]&&ls[1]<ls[2])add('Восходящий тренд','bullish','Последовательность повышающихся максимумов и минимумов.',last,'belowBar'); if(hs[0]>hs[1]&&hs[1]>hs[2]&&ls[0]>ls[1]&&ls[1]>ls[2])add('Нисходящий тренд','bearish','Последовательность снижающихся максимумов и минимумов.',last,'aboveBar'); if(hs[0]>hs[1]&&hs[1]>hs[2]&&ls[0]<ls[1]&&ls[1]<ls[2])add('Сходящийся треугольник','neutral','Максимумы снижаются, минимумы повышаются — сжатие диапазона.',last,'aboveBar'); }
             return { markers, patterns };
         }
+
+        const PATTERN_REFERENCE=[['Двойное Дно','bullish','Два близких минимума; возможный бычий разворот.'],['Тройное Дно','bullish','Три близких минимума.'],['Двойная Вершина','bearish','Два близких максимума; возможный разворот вниз.'],['Голова и Плечи','bearish','Центральный пик выше двух боковых.'],['Перевёрнутая ГиП','bullish','Центральное дно ниже двух боковых.'],['Молот','bullish','Длинная нижняя тень и небольшое тело.'],['Падающая звезда','bearish','Длинная верхняя тень и небольшое тело.'],['Доджи','neutral','Открытие и закрытие почти совпадают.'],['Бычье поглощение','bullish','Бычье тело поглощает предыдущее медвежье.'],['Медвежье поглощение','bearish','Медвежье тело поглощает предыдущее бычье.'],['Утренняя звезда','bullish','Трёхсвечный разворот после снижения.'],['Вечерняя звезда','bearish','Трёхсвечный разворот после роста.'],['Три белых солдата','bullish','Три последовательные сильные бычьи свечи.'],['Три чёрные вороны','bearish','Три последовательные сильные медвежьи свечи.'],['Внутренний бар','neutral','Свеча полностью внутри предыдущей.'],['Сходящийся треугольник','neutral','Снижающиеся максимумы и повышающиеся минимумы.'],['Восходящий тренд','bullish','Повышающиеся максимумы и минимумы.'],['Нисходящий тренд','bearish','Снижающиеся максимумы и минимумы.']];
+        function renderPatternCenter(patterns=[]){const list=document.getElementById('patternCenterDetectedList'),badge=document.getElementById('patternCenterBadge'),hb=document.getElementById('patternCenterHeaderBadge'),count=patterns.length;if(badge)badge.textContent=count;if(hb)hb.textContent=count;if(list)list.innerHTML=count?patterns.map(p=>{const cls=p.type==='bullish'?'text-bybit-green border-bybit-green/20 bg-bybit-green/10':p.type==='bearish'?'text-bybit-red border-bybit-red/20 bg-bybit-red/10':'text-bybit-yellow border-bybit-yellow/20 bg-bybit-yellow/10';return `<div class="p-2.5 rounded-xl bg-bybit-bg border border-bybit-border"><div class="flex items-center justify-between gap-2"><b class="text-white text-[11px]">${p.name}</b><span class="${cls} border px-1.5 py-0.5 rounded font-mono text-[8px] font-bold">${p.type==='bullish'?'BULLISH':p.type==='bearish'?'BEARISH':'NEUTRAL'}</span></div><div class="text-[10px] text-bybit-muted mt-1 leading-relaxed">${p.desc}</div></div>`}).join(''):'<div class="text-bybit-muted italic text-center py-6 sm:col-span-2">На текущем графике паттерны не обнаружены</div>';}
+        function renderPatternReference(){const list=document.getElementById('patternReferenceList');if(!list)return;list.innerHTML=PATTERN_REFERENCE.map(([name,type,desc])=>`<div class="p-2.5 rounded-xl bg-bybit-bg border border-bybit-border"><div class="flex items-center gap-2"><b class="text-white text-[11px]">${name}</b><span class="text-[8px] font-mono ${type==='bullish'?'text-bybit-green':type==='bearish'?'text-bybit-red':'text-bybit-yellow'}">${type.toUpperCase()}</span></div><div class="text-[10px] text-bybit-muted mt-1 leading-relaxed">${desc}</div></div>`).join('');}
+        function setupPatternCenter(){const modal=document.getElementById('patternCenterModal');if(!modal)return;const close=()=>modal.classList.add('hidden');document.getElementById('openPatternsBtn')?.addEventListener('click',()=>{renderPatternReference();modal.classList.remove('hidden')});document.getElementById('closePatternsBtn')?.addEventListener('click',close);document.getElementById('closePatternsModalBtn')?.addEventListener('click',close);modal.addEventListener('click',e=>{if(e.target===modal)close()});document.getElementById('patternCenterDetectedTab')?.addEventListener('click',()=>{document.getElementById('patternCenterDetectedPane').classList.remove('hidden');document.getElementById('patternCenterReferencePane').classList.add('hidden');document.getElementById('patternCenterDetectedTab').classList.add('active');document.getElementById('patternCenterReferenceTab').classList.remove('active')});document.getElementById('patternCenterReferenceTab')?.addEventListener('click',()=>{renderPatternReference();document.getElementById('patternCenterDetectedPane').classList.add('hidden');document.getElementById('patternCenterReferencePane').classList.remove('hidden');document.getElementById('patternCenterReferenceTab').classList.add('active');document.getElementById('patternCenterDetectedTab').classList.remove('active')});}
 
         function renderSRPanel(zones) {
             const containerDesktop = document.getElementById('srList');
