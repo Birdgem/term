@@ -1,21 +1,11 @@
-# Trading Terminal Stage 5.31.2 — Pattern Center Clean
+# Trading Terminal Stage 5.31.3 — Patterns 10
 
-Base: Stage 5.31.1 Pattern Center FIX.
+Base: Stage 5.31.2 Pattern Center Clean.
 
-## Pattern architecture
-- Pattern detection scans the latest 100 candles for the Pattern Center.
-- Candle patterns and structural patterns accumulate occurrences across that window.
-- Pattern Center shows one latest occurrence per pattern type, with occurrence count, candle index/time, direction and description.
-- Chart markers show only the latest occurrence per pattern type, capped at 7 pattern markers.
-- Pattern chart markers have no long text labels; they use compact arrows/circles/squares to keep the mobile chart readable.
-- Volume anomaly `V` markers remain separate and are not included in the 7-pattern cap.
-- Tapping a Pattern Center item attempts to center the Lightweight Charts time scale on that pattern candle.
-
-## Unchanged
-- Trading mechanics
-- S/R logic
-- Volume anomaly detection
-- EMA/RSI/MACD
-- Existing controls and trade UI
-
-JavaScript syntax checked with Node.js `--check`.
+Pattern behavior:
+- Pattern Center continues to analyze/retain the full 100-candle history.
+- Chart pattern markers are limited to the most recent 10 candles.
+- Only the latest occurrence of each pattern type is shown on the chart.
+- Maximum 7 pattern markers on the chart.
+- Volume anomaly `V` markers remain separate.
+- Trading logic, S/R, indicators and trade controls are not intentionally changed.
