@@ -5171,14 +5171,14 @@
         }
 
         function detectAdvancedPatterns(candles, srZones) {
-            const markers = [], patterns = []; const n = candles.length;
-            if (n < 12) return { markers, patterns };
+            const patterns = []; const n = candles.length;
+            if (n < 12) return { markers: [], patterns: [] };
             const seen = new Map();
             const add=(name,type,desc,candle,position,shape='circle')=>{
-                if(candle) markers.push({time:candle.time,position,color:type==='bullish'?'#0ecb81':type==='bearish'?'#f6465d':'#f7a600',shape,text:name});
+                if(!candle) return;
                 const key=name;
-                const prev=seen.get(key);
-                if(!prev || (candle && candle.time>prev.candle.time)) seen.set(key,{name,type,desc,candle});
+                const rec={name,type,desc,candle,position,shape,index:candles.indexOf(candle)};
+                const arr=seen.get(key)||[]; arr.push(rec); seen.set(key,arr);
             };
             const pct=(a,b)=>Math.abs(a-b)/Math.max(Math.abs(a),1e-12);
             const bodyOf=c=>Math.abs(c.close-c.open);
@@ -5188,11 +5188,12 @@
             const isBull=c=>c.close>c.open, isBear=c=>c.close<c.open;
             const avgBodyAt=(i,lookback=20)=>{
                 const from=Math.max(0,i-lookback), to=Math.max(from,i);
-                return candles.slice(from,to).reduce((s,c)=>s+bodyOf(c),0)/Math.max(1,to-from);
+                return candles.slice(from,to).reduce((sum,c)=>sum+bodyOf(c),0)/Math.max(1,to-from);
             };
 
-            // Scan recent history, not only the last candle. This makes the Pattern Center
-            // useful even when a pattern formed a few candles ago.
+            // HISTORY: scan the last 100 candles for Pattern Center statistics.
+            // The chart never receives this full history; it receives only the latest
+            // instance of each pattern type below.
             const scanFrom=Math.max(2,n-100);
             for(let i=scanFrom;i<n;i++){
                 const last=candles[i], prev=candles[i-1], p2=i>=2?candles[i-2]:null;
@@ -5202,7 +5203,7 @@
                 if(uw>body*2&&lw<body*.8) add('Падающая звезда (Shooting Star)','bearish','Длинная верхняя тень — возможное отвержение роста.',last,'aboveBar');
                 if(body/rangeOf(last)<.1) add('Доджи (Doji)','neutral','Открытие и закрытие почти совпадают — нерешительность.',last,'aboveBar');
                 if(isBear(prev)&&isBull(last)&&last.open<=prev.close&&last.close>=prev.open&&bodyOf(last)>bodyOf(prev)*.9) add('Бычье поглощение (Bullish Engulfing)','bullish','Бычья свеча поглощает тело предыдущей медвежьей.',last,'belowBar','arrowUp');
-                if(isBull(prev)&&isBear(last)&&last.open>=prev.close&&last.close<=prev.open&&bodyOf(last)>bodyOf(prev)*.9) add('Медвежье поглощение (Bearish Engulfing)','bearish','Медвежья свеча поглощает тело предыдущей бычьей.',last,'aboveBar','arrowDown');
+                if(isBull(prev)&&isBear(last)&&last.open>=prev.close&&last.close<=prev.open&&bodyOf(last)>bodyOf(prev)*.9) add('Медвежье поглощение (Bearish Engulfing)','bearish','Медвежье тело поглощает тело предыдущей бычьей.',last,'aboveBar','arrowDown');
                 if(p2&&isBear(p2)&&bodyOf(p2)>avgBody*.8&&bodyOf(prev)<bodyOf(p2)*.55&&isBull(last)&&last.close>(p2.open+p2.close)/2) add('Утренняя звезда (Morning Star)','bullish','Трёхсвечная разворотная структура после снижения.',last,'belowBar','arrowUp');
                 if(p2&&isBull(p2)&&bodyOf(p2)>avgBody*.8&&bodyOf(prev)<bodyOf(p2)*.55&&isBear(last)&&last.close<(p2.open+p2.close)/2) add('Вечерняя звезда (Evening Star)','bearish','Трёхсвечная разворотная структура после роста.',last,'aboveBar','arrowDown');
                 if(p2&&isBull(p2)&&isBull(prev)&&isBull(last)&&prev.close>p2.close&&last.close>prev.close&&lowerWick(prev)<bodyOf(prev)*.7&&lowerWick(last)<bodyOf(last)*.7) add('Три белых солдата (Three White Soldiers)','bullish','Три последовательные сильные бычьи свечи.',last,'belowBar','arrowUp');
@@ -5212,26 +5213,87 @@
 
             const swingLows=[], swingHighs=[];
             for(let i=3;i<n-3;i++){
-                if(candles[i].low<candles[i-1].low&&candles[i].low<candles[i-2].low&&candles[i].low<candles[i+1].low&&candles[i].low<candles[i+2].low) swingLows.push({index:i,price:candles[i].low,time:candles[i].time});
-                if(candles[i].high>candles[i-1].high&&candles[i].high>candles[i-2].high&&candles[i].high>candles[i+1].high&&candles[i].high>candles[i+2].high) swingHighs.push({index:i,price:candles[i].high,time:candles[i].time});
+                if(candles[i].low<candles[i-1].low&&candles[i].low<candles[i-2].low&&candles[i].low<candles[i+1].low&&candles[i].low<candles[i+2].low) swingLows.push({index:i,price:candles[i].low,time:candles[i].time,candle:candles[i]});
+                if(candles[i].high>candles[i-1].high&&candles[i].high>candles[i-2].high&&candles[i].high>candles[i+1].high&&candles[i].high>candles[i+2].high) swingHighs.push({index:i,price:candles[i].high,time:candles[i].time,candle:candles[i]});
             }
             const recentLows=swingLows.filter(x=>x.index>=scanFrom-5), recentHighs=swingHighs.filter(x=>x.index>=scanFrom-5);
-            if(swingLows.length>=2){ const [l1,l2]=swingLows.slice(-2); if(pct(l1.price,l2.price)<.02&&(l2.index-l1.index)>3) add('Двойное Дно (Double Bottom)','bullish',`Два близких минимума около $${formatPrice(l2.price)}.`,l2,'belowBar','arrowUp'); }
-            if(swingLows.length>=3){ const [l1,l2,l3]=swingLows.slice(-3); if(pct(l1.price,l2.price)<.02&&pct(l2.price,l3.price)<.02) add('Тройное Дно (Triple Bottom)','bullish',`Три близких минимума около $${formatPrice(l3.price)}.`,l3,'belowBar','arrowUp'); }
-            if(swingHighs.length>=2){ const [h1,h2]=swingHighs.slice(-2); if(pct(h1.price,h2.price)<.02&&(h2.index-h1.index)>3) add('Двойная Вершина (Double Top)','bearish',`Два близких максимума около $${formatPrice(h2.price)}.`,h2,'aboveBar','arrowDown'); }
-            if(swingHighs.length>=3){ const [s1,h,s2]=swingHighs.slice(-3); if(h.price>s1.price&&h.price>s2.price&&pct(s1.price,s2.price)<.025) add('Голова и Плечи (Head & Shoulders)','bearish','Центральный пик выше двух боковых.',h,'aboveBar','square'); }
-            if(swingLows.length>=3){ const [s1,h,s2]=swingLows.slice(-3); if(h.price<s1.price&&h.price<s2.price&&pct(s1.price,s2.price)<.025) add('Перевёрнутая ГиП (Inverse H&S)','bullish','Центральное дно ниже двух боковых.',h,'belowBar','square'); }
+            // Structural patterns are also scanned across the full 100-candle window.
+            for(let j=1;j<swingLows.length;j++){
+                const l1=swingLows[j-1], l2=swingLows[j];
+                if(l1.index>=scanFrom-5 && pct(l1.price,l2.price)<.02 && (l2.index-l1.index)>3) add('Двойное Дно (Double Bottom)','bullish',`Два близких минимума около $${formatPrice(l2.price)}.`,l2.candle,'belowBar','arrowUp');
+            }
+            for(let j=2;j<swingLows.length;j++){
+                const l1=swingLows[j-2], l2=swingLows[j-1], l3=swingLows[j];
+                if(l1.index>=scanFrom-5 && pct(l1.price,l2.price)<.02 && pct(l2.price,l3.price)<.02) add('Тройное Дно (Triple Bottom)','bullish',`Три близких минимума около $${formatPrice(l3.price)}.`,l3.candle,'belowBar','arrowUp');
+            }
+            for(let j=1;j<swingHighs.length;j++){
+                const h1=swingHighs[j-1], h2=swingHighs[j];
+                if(h1.index>=scanFrom-5 && pct(h1.price,h2.price)<.02 && (h2.index-h1.index)>3) add('Двойная Вершина (Double Top)','bearish',`Два близких максимума около $${formatPrice(h2.price)}.`,h2.candle,'aboveBar','arrowDown');
+            }
+            for(let j=2;j<swingHighs.length;j++){
+                const s1=swingHighs[j-2], h=swingHighs[j-1], s2=swingHighs[j];
+                if(s1.index>=scanFrom-5 && h.price>s1.price && h.price>s2.price && pct(s1.price,s2.price)<.025) add('Голова и Плечи (Head & Shoulders)','bearish','Центральный пик выше двух боковых.',h.candle,'aboveBar','square');
+            }
+            for(let j=2;j<swingLows.length;j++){
+                const s1=swingLows[j-2], h=swingLows[j-1], s2=swingLows[j];
+                if(s1.index>=scanFrom-5 && h.price<s1.price && h.price<s2.price && pct(s1.price,s2.price)<.025) add('Перевёрнутая ГиП (Inverse H&S)','bullish','Центральное дно ниже двух боковых.',h.candle,'belowBar','square');
+            }
             const hs=recentHighs.slice(-3).map(x=>x.price), ls=recentLows.slice(-3).map(x=>x.price);
             if(hs.length>=3&&ls.length>=3){
                 if(hs[0]<hs[1]&&hs[1]<hs[2]&&ls[0]<ls[1]&&ls[1]<ls[2]) add('Восходящий тренд','bullish','Последовательность повышающихся максимумов и минимумов.',candles[n-1],'belowBar');
                 if(hs[0]>hs[1]&&hs[1]>hs[2]&&ls[0]>ls[1]&&ls[1]>ls[2]) add('Нисходящий тренд','bearish','Последовательность снижающихся максимумов и минимумов.',candles[n-1],'aboveBar');
                 if(hs[0]>hs[1]&&hs[1]>hs[2]&&ls[0]<ls[1]&&ls[1]<ls[2]) add('Сходящийся треугольник','neutral','Максимумы снижаются, минимумы повышаются — сжатие диапазона.',candles[n-1],'aboveBar');
             }
-            return {markers,patterns:Array.from(seen.values()).map(x=>({name:x.name,type:x.type,desc:x.desc}))};
+
+            // One latest marker per type, sorted by recency, then cap visual density.
+            const latest=[];
+            for(const [key,arr] of seen.entries()){
+                arr.sort((a,b)=>(b.index??-1)-(a.index??-1));
+                latest.push({...arr[0], count:arr.length, occurrences:arr});
+            }
+            latest.sort((a,b)=>(b.index??-1)-(a.index??-1));
+            const chartLatest=latest.slice(0,7);
+            const markers=chartLatest.map(p=>({
+                time:p.candle.time,
+                position:p.position,
+                color:p.type==='bullish'?'#0ecb81':p.type==='bearish'?'#f6465d':'#f7a600',
+                shape:p.shape==='arrowUp'?'arrowUp':p.shape==='arrowDown'?'arrowDown':p.shape==='square'?'square':'circle',
+                text:''
+            }));
+            const patternSummary=latest.map(p=>({
+                id:`${p.name}-${p.candle.time}`,
+                name:p.name,type:p.type,desc:p.desc,
+                time:p.candle.time,index:p.index,count:p.count
+            }));
+            return {markers,patterns:patternSummary};
         }
 
         const PATTERN_REFERENCE=[['Двойное Дно','bullish','Два близких минимума; возможный бычий разворот.'],['Тройное Дно','bullish','Три близких минимума.'],['Двойная Вершина','bearish','Два близких максимума; возможный разворот вниз.'],['Голова и Плечи','bearish','Центральный пик выше двух боковых.'],['Перевёрнутая ГиП','bullish','Центральное дно ниже двух боковых.'],['Молот','bullish','Длинная нижняя тень и небольшое тело.'],['Падающая звезда','bearish','Длинная верхняя тень и небольшое тело.'],['Доджи','neutral','Открытие и закрытие почти совпадают.'],['Бычье поглощение','bullish','Бычье тело поглощает предыдущее медвежье.'],['Медвежье поглощение','bearish','Медвежье тело поглощает предыдущее бычье.'],['Утренняя звезда','bullish','Трёхсвечный разворот после снижения.'],['Вечерняя звезда','bearish','Трёхсвечный разворот после роста.'],['Три белых солдата','bullish','Три последовательные сильные бычьи свечи.'],['Три чёрные вороны','bearish','Три последовательные сильные медвежьи свечи.'],['Внутренний бар','neutral','Свеча полностью внутри предыдущей.'],['Сходящийся треугольник','neutral','Снижающиеся максимумы и повышающиеся минимумы.'],['Восходящий тренд','bullish','Повышающиеся максимумы и минимумы.'],['Нисходящий тренд','bearish','Снижающиеся максимумы и минимумы.']];
-        function renderPatternCenter(patterns=[]){const list=document.getElementById('patternCenterDetectedList'),badge=document.getElementById('patternCenterBadge'),hb=document.getElementById('patternCenterHeaderBadge'),count=patterns.length;if(badge)badge.textContent=count;if(hb)hb.textContent=count;if(list)list.innerHTML=count?patterns.map(p=>{const cls=p.type==='bullish'?'text-bybit-green border-bybit-green/20 bg-bybit-green/10':p.type==='bearish'?'text-bybit-red border-bybit-red/20 bg-bybit-red/10':'text-bybit-yellow border-bybit-yellow/20 bg-bybit-yellow/10';return `<div class="p-2.5 rounded-xl bg-bybit-bg border border-bybit-border"><div class="flex items-center justify-between gap-2"><b class="text-white text-[11px]">${p.name}</b><span class="${cls} border px-1.5 py-0.5 rounded font-mono text-[8px] font-bold">${p.type==='bullish'?'BULLISH':p.type==='bearish'?'BEARISH':'NEUTRAL'}</span></div><div class="text-[10px] text-bybit-muted mt-1 leading-relaxed">${p.desc}</div></div>`}).join(''):'<div class="text-bybit-muted italic text-center py-6 sm:col-span-2">На текущем графике паттерны не обнаружены</div>';}
+        function renderPatternCenter(patterns=[]){
+            const list=document.getElementById('patternCenterDetectedList'), badge=document.getElementById('patternCenterBadge'), hb=document.getElementById('patternCenterHeaderBadge');
+            const count=patterns.length; if(badge)badge.textContent=count; if(hb)hb.textContent=count;
+            if(!list)return;
+            list.innerHTML=count?patterns.map(p=>{
+                const cls=p.type==='bullish'?'text-bybit-green border-bybit-green/20 bg-bybit-green/10':p.type==='bearish'?'text-bybit-red border-bybit-red/20 bg-bybit-red/10':'text-bybit-yellow border-bybit-yellow/20 bg-bybit-yellow/10';
+                const timeLabel = p.time ? new Date(Number(p.time)*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
+                return `<button type="button" data-pattern-index="${p.index}" data-pattern-time="${p.time||''}" class="pattern-center-item w-full text-left p-2.5 rounded-xl bg-bybit-bg border border-bybit-border hover:border-bybit-yellow/50 active:bg-bybit-hover transition-colors"><div class="flex items-center justify-between gap-2"><b class="text-white text-[11px] leading-tight">${p.name}</b><span class="${cls} border px-1.5 py-0.5 rounded font-mono text-[8px] font-bold">${p.type==='bullish'?'BULLISH':p.type==='bearish'?'BEARISH':'NEUTRAL'}</span></div><div class="flex items-center justify-between gap-2 mt-1"><span class="text-[9px] text-bybit-muted">Свеча #${p.index??'—'} · ${timeLabel}</span><span class="text-[9px] text-bybit-yellow font-mono font-bold">×${p.count} / 100</span></div><div class="text-[10px] text-bybit-muted mt-1 leading-relaxed">${p.desc}</div></button>`;
+            }).join(''):'<div class="text-bybit-muted italic text-center py-6 sm:col-span-2">На текущем графике паттерны не обнаружены</div>';
+            list.querySelectorAll('.pattern-center-item').forEach(el=>el.addEventListener('click',()=>{
+                const t=Number(el.dataset.patternTime); if(!Number.isFinite(t))return;
+                try{
+                    if(chart && chart.timeScale){
+                        const visible=chart.timeScale().getVisibleRange?.();
+                        const span=visible ? Math.max(120, (Number(visible.to)-Number(visible.from))/4) : 600;
+                        chart.timeScale().setVisibleRange({from:Math.max(0,t-span),to:t+span});
+                    }
+                    if(candleSeries){
+                        const price=rawCandles.find(c=>Number(c.time)===t)?.close;
+                        if(price && chart && chart.priceScale){ chart.priceScale('right')?.applyOptions?.({autoScale:true}); }
+                    }
+                }catch(e){}
+            }));
+        }
+
         function renderPatternReference(){const list=document.getElementById('patternReferenceList');if(!list)return;list.innerHTML=PATTERN_REFERENCE.map(([name,type,desc])=>`<div class="p-2.5 rounded-xl bg-bybit-bg border border-bybit-border"><div class="flex items-center gap-2"><b class="text-white text-[11px]">${name}</b><span class="text-[8px] font-mono ${type==='bullish'?'text-bybit-green':type==='bearish'?'text-bybit-red':'text-bybit-yellow'}">${type.toUpperCase()}</span></div><div class="text-[10px] text-bybit-muted mt-1 leading-relaxed">${desc}</div></div>`).join('');}
         function setupPatternCenter(){const modal=document.getElementById('patternCenterModal');if(!modal)return;const close=()=>modal.classList.add('hidden');document.getElementById('openPatternsBtn')?.addEventListener('click',()=>{renderPatternReference();modal.classList.remove('hidden')});document.getElementById('closePatternsBtn')?.addEventListener('click',close);document.getElementById('closePatternsModalBtn')?.addEventListener('click',close);modal.addEventListener('click',e=>{if(e.target===modal)close()});document.getElementById('patternCenterDetectedTab')?.addEventListener('click',()=>{document.getElementById('patternCenterDetectedPane').classList.remove('hidden');document.getElementById('patternCenterReferencePane').classList.add('hidden');document.getElementById('patternCenterDetectedTab').classList.add('active');document.getElementById('patternCenterReferenceTab').classList.remove('active')});document.getElementById('patternCenterReferenceTab')?.addEventListener('click',()=>{renderPatternReference();document.getElementById('patternCenterDetectedPane').classList.add('hidden');document.getElementById('patternCenterReferencePane').classList.remove('hidden');document.getElementById('patternCenterReferenceTab').classList.add('active');document.getElementById('patternCenterDetectedTab').classList.remove('active')});}
 
