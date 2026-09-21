@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>Bybit Scalper Terminal</title>
     <meta name="theme-color" content="#0d1117">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bybit Scalper">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lightweight Charts v5.2.1 CDN -->
+    <!-- Lightweight Charts v4.1.1 CDN -->
     <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1244,6 +1248,31 @@
     <!-- Main Content Layout -->
     <div class="main-layout flex relative">
         <main class="chart-main flex flex-col relative bg-bybit-bg">
+            <div id="mobileOhlcMini" class="md:hidden absolute top-11 left-2 z-20 hidden items-center gap-1.5 bg-bybit-card/92 backdrop-blur-md border border-bybit-border/80 px-2 py-1 rounded-md text-[9px] font-mono shadow-xl">
+                <span>O <b id="mobileO">0</b></span><span>H <b id="mobileH">0</b></span><span>L <b id="mobileL">0</b></span><span>C <b id="mobileC">0</b></span><span>V <b id="mobileV">0</b></span>
+            </div>
+
+            <div id="mobileChartToolbar" class="hidden md:hidden">
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <span class="text-bybit-muted">CHART</span>
+                    <span class="text-bybit-green">REALTIME</span>
+                </div>
+                <div id="mobileScalpScore" class="flex items-center gap-1.5 px-2 py-1 rounded-md border border-bybit-border bg-bybit-bg/80 min-w-0">
+                    <span class="text-bybit-muted text-[8px]">SCORE</span>
+                    <b id="mobileScalpScoreValue" class="text-bybit-yellow text-[12px] leading-none">--</b>
+                    <span id="mobileScalpScoreBias" class="text-bybit-yellow text-[8px] font-black truncate max-w-[72px]">WAIT</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button id="resetChartViewBtn" class="chart-quick-btn">AUTO</button>
+                </div>
+            </div>
+
+            <div id="chartViewTabs" class="chart-view-tabs" role="tablist" aria-label="Режим графика">
+                <button id="chartViewFullBtn" class="chart-view-tab active" role="tab" aria-selected="true">ПОЛНЫЙ ГРАФИК</button>
+                <button id="chartViewCompactBtn" class="chart-view-tab" role="tab" aria-selected="false">КОМПАКТНЫЙ</button>
+            </div>
+            <div id="chartsArea" class="chart-mode-full">
+                <div id="priceChartContainer" class="chart-panel">
             <div id="priceInfoOverlay" class="absolute top-2 left-2 z-20 flex flex-wrap items-center gap-x-2 gap-y-1 bg-bybit-card/95 backdrop-blur-md border border-bybit-border/80 px-2.5 py-1 rounded-lg text-xs shadow-2xl">
                 <div class="flex items-center space-x-1.5">
                     <span id="currentSymbolText" class="font-bold text-white text-xs sm:text-sm font-mono">BTCUSDT</span>
@@ -1274,31 +1303,6 @@
                     <span class="text-bybit-muted">Vol: <span id="ohlcVol" class="text-white">0.00</span></span>
                 </div>
             </div>
-            <div id="mobileOhlcMini" class="md:hidden absolute top-11 left-2 z-20 hidden items-center gap-1.5 bg-bybit-card/92 backdrop-blur-md border border-bybit-border/80 px-2 py-1 rounded-md text-[9px] font-mono shadow-xl">
-                <span>O <b id="mobileO">0</b></span><span>H <b id="mobileH">0</b></span><span>L <b id="mobileL">0</b></span><span>C <b id="mobileC">0</b></span><span>V <b id="mobileV">0</b></span>
-            </div>
-
-            <div id="mobileChartToolbar" class="hidden md:hidden">
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <span class="text-bybit-muted">CHART</span>
-                    <span class="text-bybit-green">REALTIME</span>
-                </div>
-                <div id="mobileScalpScore" class="flex items-center gap-1.5 px-2 py-1 rounded-md border border-bybit-border bg-bybit-bg/80 min-w-0">
-                    <span class="text-bybit-muted text-[8px]">SCORE</span>
-                    <b id="mobileScalpScoreValue" class="text-bybit-yellow text-[12px] leading-none">--</b>
-                    <span id="mobileScalpScoreBias" class="text-bybit-yellow text-[8px] font-black truncate max-w-[72px]">WAIT</span>
-                </div>
-                <div class="flex items-center gap-1 shrink-0">
-                    <button id="resetChartViewBtn" class="chart-quick-btn">AUTO</button>
-                </div>
-            </div>
-
-            <div id="chartViewTabs" class="chart-view-tabs" role="tablist" aria-label="Режим графика">
-                <button id="chartViewFullBtn" class="chart-view-tab active" role="tab" aria-selected="true" type="button" onclick="window.applyChartViewMode && window.applyChartViewMode('full')">ПОЛНЫЙ ГРАФИК</button>
-                <button id="chartViewCompactBtn" class="chart-view-tab" role="tab" aria-selected="false" type="button" onclick="window.applyChartViewMode && window.applyChartViewMode('compact')">КОМПАКТНЫЙ</button>
-            </div>
-            <div id="chartsArea" class="chart-mode-full">
-                <div id="priceChartContainer" class="chart-panel">
                     <div id="mobileChartTools" aria-label="Таймфрейм и управление графиком">
                         <button class="mobile-tf-btn" data-mobile-interval="1">1m</button>
                         <button class="mobile-tf-btn" data-mobile-interval="5">5m</button>
@@ -2550,6 +2554,52 @@
             document.getElementById('resetChartViewBtn')?.addEventListener('click', resetChartView);
             document.getElementById('resetChartViewBtnTop')?.addEventListener('click', resetChartView);
 
+
+            // Stage 5.30.4 — chart mode is handled by the actual mobile client script.
+            // Keep the mode authoritative so indicator visibility cannot overwrite the compact height.
+            let chartViewMode = (() => {
+                try { return localStorage.getItem('chartViewMode') === 'compact' ? 'compact' : 'full'; } catch { return 'full'; }
+            })();
+
+            function applyChartViewMode(mode) {
+                chartViewMode = mode === 'compact' ? 'compact' : 'full';
+                const area = document.getElementById('chartsArea');
+                const fullBtn = document.getElementById('chartViewFullBtn');
+                const compactBtn = document.getElementById('chartViewCompactBtn');
+                const pricePanel = document.getElementById('priceChartContainer');
+                if (!area || !pricePanel) return;
+
+                area.classList.toggle('chart-mode-compact', chartViewMode === 'compact');
+                area.classList.toggle('chart-mode-full', chartViewMode === 'full');
+                fullBtn?.classList.toggle('active', chartViewMode === 'full');
+                compactBtn?.classList.toggle('active', chartViewMode === 'compact');
+                fullBtn?.setAttribute('aria-selected', chartViewMode === 'full' ? 'true' : 'false');
+                compactBtn?.setAttribute('aria-selected', chartViewMode === 'compact' ? 'true' : 'false');
+
+                const compact = chartViewMode === 'compact';
+                const height = compact ? '150px' : (document.body.classList.contains('mobile-trade-collapsed') ? '240px' : '220px');
+                if (window.innerWidth < 768) {
+                    pricePanel.style.height = height;
+                    pricePanel.style.minHeight = height;
+                }
+
+                ['volumeChartContainer','rsiChartContainer','macdChartContainer'].forEach(id => {
+                    document.getElementById(id)?.classList.toggle('is-hidden', compact);
+                });
+                if (volumeSeries) volumeSeries.applyOptions({ visible: compact ? false : settings.showVolume });
+                [rsiSeries,rsi70Series,rsi50Series,rsi30Series].forEach(series => series?.applyOptions({ visible: compact ? false : settings.showRSI }));
+                [macdLineSeries,macdSignalSeries,macdHistogramSeries].forEach(series => series?.applyOptions({ visible: compact ? false : settings.showMACD }));
+
+                try { localStorage.setItem('chartViewMode', chartViewMode); } catch {}
+                requestAnimationFrame(() => {
+                    try { resizeAllCharts(); syncAllChartRanges(); } catch (_) {}
+                });
+            }
+
+            document.getElementById('chartViewFullBtn')?.addEventListener('click', () => applyChartViewMode('full'));
+            document.getElementById('chartViewCompactBtn')?.addEventListener('click', () => applyChartViewMode('compact'));
+            applyChartViewMode(chartViewMode);
+
             const doManualRefresh = async (iconId) => {
                 const icon = document.getElementById(iconId);
                 if (icon) icon.classList.add('animate-spin');
@@ -2680,7 +2730,7 @@
                 if (installBtn) installBtn.style.display = 'none';
                 updateAppModeUi();
             });
-document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
+            document.getElementById('refreshBtn').addEventListener('click', () => doManualRefresh('refreshIcon'));
             document.getElementById('mobileRefreshBtn')?.addEventListener('click', () => doManualRefresh('mobileRefreshIcon'));
 
 
@@ -4934,10 +4984,15 @@ document.getElementById('refreshBtn').addEventListener('click', () => doManualRe
 
             const pricePanel = document.getElementById('priceChartContainer');
             const isMobile = window.innerWidth < 768;
-            if (!volumeVisible && !rsiVisible && !macdVisible) {
-                pricePanel.style.height = isMobile ? '460px' : '650px';
+            if (isMobile) {
+                const compact = chartViewMode === 'compact';
+                const height = compact ? '150px' : (document.body.classList.contains('mobile-trade-collapsed') ? '240px' : '220px');
+                pricePanel.style.height = height;
+                pricePanel.style.minHeight = height;
+            } else if (!volumeVisible && !rsiVisible && !macdVisible) {
+                pricePanel.style.height = '650px';
             } else {
-                pricePanel.style.height = isMobile ? '340px' : '520px';
+                pricePanel.style.height = '520px';
             }
 
             requestAnimationFrame(() => {

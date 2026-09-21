@@ -18,3 +18,9 @@ No trading, TP/SL, realtime position, or UI mechanics were changed.
 - Order-book calculations reduced to ~2/sec; BW/SW chart geometry and DOM bands limited to ~1/sec.
 - BW/SW price-line objects are reused instead of removed/recreated on every order-book update.
 - Trading/backend mechanics, authentication, position management, TP/SL and history are unchanged from the 5.24.1 baseline.
+
+## Stage 5.30.4
+- Fixed chart mode switching in the actual embedded client.
+- Compact mode enforces a 150px mobile price chart.
+- Price/score overlay is now inside the price chart container instead of sitting as a separate block above it.
+- Removed PWA/manifest/service-worker assets from this patch archive.
