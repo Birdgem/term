@@ -883,56 +883,37 @@
         }
 
 
-        /* Stage 5.30.1 — compact Bybit-style mobile chart. */
+        /* Stage 5.30.2 — two chart views: full + compact 150px. */
+        .chart-view-tabs {
+            display:flex; align-items:center; gap:4px; padding:4px 6px;
+            background:rgba(13,17,23,.92); border-bottom:1px solid #21262d;
+        }
+        .chart-view-tab {
+            height:26px; padding:0 11px; border:1px solid #30363d; border-radius:7px;
+            background:#0d1117; color:#8b949e; font:700 10px ui-monospace,monospace;
+            white-space:nowrap;
+        }
+        .chart-view-tab.active {
+            color:#f7a600; border-color:rgba(247,166,0,.55); background:rgba(247,166,0,.08);
+        }
         @media (max-width: 767px) {
-            #priceChartContainer {
-                height: 238px !important;
-                min-height: 238px !important;
-                max-height: 238px !important;
+            #chartsArea.chart-mode-compact #priceChartContainer {
+                height:150px !important; min-height:150px !important;
             }
-            body.mobile-trade-collapsed #priceChartContainer {
-                height: 248px !important;
-                min-height: 248px !important;
-                max-height: 248px !important;
+            #chartsArea.chart-mode-compact #volumeChartContainer,
+            #chartsArea.chart-mode-compact #rsiChartContainer,
+            #chartsArea.chart-mode-compact #macdChartContainer {
+                display:none !important; height:0 !important; min-height:0 !important;
             }
-            #priceChartContainer .panel-title { display:none !important; }
-            #mobileChartTools {
-                top:3px !important; left:6px !important; right:6px !important;
-                height:29px !important; min-height:29px !important;
-                padding:2px !important; gap:2px !important;
-                border-radius:7px !important;
-                box-shadow:0 2px 8px rgba(0,0,0,.28) !important;
+            #chartsArea.chart-mode-full #priceChartContainer {
+                height:220px !important; min-height:220px !important;
             }
-            #mobileChartTools .mobile-tf-btn {
-                min-width:31px !important; width:auto !important; height:24px !important; min-height:24px !important;
-                padding:1px 5px !important; font-size:9px !important; border-radius:5px !important;
+            body.mobile-trade-collapsed #chartsArea.chart-mode-full #priceChartContainer {
+                height:240px !important; min-height:240px !important;
             }
-            #mobileChartTools .mobile-chart-action {
-                width:27px !important; min-width:27px !important; height:24px !important;
-                font-size:8px !important; border-radius:5px !important;
-            }
-            #priceInfoOverlay {
-                top:36px !important; left:6px !important; right:6px !important;
-                height:28px !important; min-height:28px !important;
-                padding:0 6px !important; gap:4px !important;
-                border-radius:7px !important; font-size:9px !important;
-                box-shadow:0 2px 8px rgba(0,0,0,.28) !important;
-            }
-            #currentSymbolText { font-size:10px !important; }
-            #lastPrice { font-size:11px !important; }
-            #priceInfo24h { font-size:8px !important; }
-            #priceInfoScalpScore { min-width:56px !important; padding:2px 4px !important; }
-            #priceInfoScalpScoreValue { font-size:9px !important; }
-            #priceInfoScalpScoreBias { font-size:7px !important; }
-            #mobileOhlcMini { top:67px !important; font-size:8px !important; padding:2px 5px !important; }
+            .chart-view-tabs { padding:3px 6px; gap:3px; }
+            .chart-view-tab { height:24px; padding:0 10px; font-size:9px; }
         }
-        /* Stage 5.30.1 final mobile chart sizing override. */
-        @media (max-width:767px) {
-            #priceChartContainer { min-height:238px !important; height:238px !important; }
-            body.mobile-trade-collapsed #priceChartContainer { min-height:248px !important; height:248px !important; }
-            #priceChartContainer .tv-lightweight-charts { width:100% !important; height:100% !important; }
-        }
-
 
 /* Stage 5.28 — compact mobile trade panel. Entry/position buttons intentionally unchanged. */
         @media (max-width:767px) {
@@ -1319,7 +1300,11 @@
                 </div>
             </div>
 
-            <div id="chartsArea">
+            <div id="chartViewTabs" class="chart-view-tabs" role="tablist" aria-label="Режим графика">
+                <button id="chartViewFullBtn" class="chart-view-tab active" role="tab" aria-selected="true">ПОЛНЫЙ ГРАФИК</button>
+                <button id="chartViewCompactBtn" class="chart-view-tab" role="tab" aria-selected="false">КОМПАКТНЫЙ</button>
+            </div>
+            <div id="chartsArea" class="chart-mode-full">
                 <div id="priceChartContainer" class="chart-panel">
                     <div id="mobileChartTools" aria-label="Таймфрейм и управление графиком">
                         <button class="mobile-tf-btn" data-mobile-interval="1">1m</button>
@@ -2032,7 +2017,7 @@
                     attributionLogo: true,
                     background: { type: 'solid', color: '#0d1117' },
                     textColor: '#8b949e',
-                    fontSize: 9,
+                    fontSize: 10,
                     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                 },
                 grid: {
@@ -2064,9 +2049,9 @@
                     timeVisible: showTimeScale,
                     secondsVisible: false,
                     visible: showTimeScale,
-                    barSpacing: window.innerWidth < 768 ? 13.0 : 7.0,
-                    minBarSpacing: window.innerWidth < 768 ? 8.5 : 2.5,
-                    maxBarSpacing: window.innerWidth < 768 ? 20 : 16,
+                    barSpacing: window.innerWidth < 768 ? 11.5 : 7.0,
+                    minBarSpacing: window.innerWidth < 768 ? 7.0 : 2.5,
+                    maxBarSpacing: window.innerWidth < 768 ? 18 : 16,
                     rightOffset: 3,
                 },
                 handleScale: true,
@@ -2132,7 +2117,7 @@
                 borderUpColor: '#0ecb81',
                 wickDownColor: '#f6465d',
                 wickUpColor: '#0ecb81',
-                borderVisible: true,
+                borderVisible: false,
                 wickVisible: true,
                 priceLineVisible: true,
                 priceFormat: {
@@ -4961,9 +4946,9 @@
             const pricePanel = document.getElementById('priceChartContainer');
             const isMobile = window.innerWidth < 768;
             if (!volumeVisible && !rsiVisible && !macdVisible) {
-                pricePanel.style.height = isMobile ? '248px' : '650px';
+                pricePanel.style.height = isMobile ? '460px' : '650px';
             } else {
-                pricePanel.style.height = isMobile ? '238px' : '520px';
+                pricePanel.style.height = isMobile ? '340px' : '520px';
             }
 
             requestAnimationFrame(() => {

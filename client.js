@@ -192,6 +192,8 @@
         let ws = null;
         let wsPingInterval = null;
 
+        let chartViewMode = localStorage.getItem('chartViewMode') === 'compact' ? 'compact' : 'full';
+
         const settings = {
             showVolume: true,
             showOrderbook: true,
@@ -312,7 +314,7 @@
                     attributionLogo: true,
                     background: { type: 'solid', color: '#0d1117' },
                     textColor: '#8b949e',
-                    fontSize: 9,
+                    fontSize: 10,
                     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                 },
                 grid: {
@@ -344,9 +346,9 @@
                     timeVisible: showTimeScale,
                     secondsVisible: false,
                     visible: showTimeScale,
-                    barSpacing: window.innerWidth < 768 ? 13.0 : 7.0,
-                    minBarSpacing: window.innerWidth < 768 ? 8.5 : 2.5,
-                    maxBarSpacing: window.innerWidth < 768 ? 20 : 16,
+                    barSpacing: window.innerWidth < 768 ? 11.5 : 7.0,
+                    minBarSpacing: window.innerWidth < 768 ? 7.0 : 2.5,
+                    maxBarSpacing: window.innerWidth < 768 ? 18 : 16,
                     rightOffset: 3,
                 },
                 handleScale: true,
@@ -412,7 +414,7 @@
                 borderUpColor: '#0ecb81',
                 wickDownColor: '#f6465d',
                 wickUpColor: '#0ecb81',
-                borderVisible: true,
+                borderVisible: false,
                 wickVisible: true,
                 priceLineVisible: true,
                 priceFormat: {
@@ -917,6 +919,9 @@
                 updateAppModeUi();
             }
             document.getElementById('fullscreenBtn')?.addEventListener('click', toggleTerminalFullscreen);
+            document.getElementById('chartViewFullBtn')?.addEventListener('click', () => applyChartViewMode('full'));
+            document.getElementById('chartViewCompactBtn')?.addEventListener('click', () => applyChartViewMode('compact'));
+            applyChartViewMode(chartViewMode);
             document.getElementById('mobileFullscreenBtn')?.addEventListener('click', toggleTerminalFullscreen);
             document.getElementById('mobileVolumeBtn')?.addEventListener('click', () => {
                 const el = document.getElementById('toggleVolume');
@@ -3207,7 +3212,43 @@
         }
 
 
+        function applyChartViewMode(mode) {
+            chartViewMode = mode === 'compact' ? 'compact' : 'full';
+            const area = document.getElementById('chartsArea');
+            const fullBtn = document.getElementById('chartViewFullBtn');
+            const compactBtn = document.getElementById('chartViewCompactBtn');
+            if (!area) return;
+
+            area.classList.toggle('chart-mode-compact', chartViewMode === 'compact');
+            area.classList.toggle('chart-mode-full', chartViewMode === 'full');
+            [fullBtn, compactBtn].forEach(btn => btn?.classList.remove('active'));
+            if (chartViewMode === 'compact') {
+                compactBtn?.classList.add('active');
+                fullBtn?.setAttribute('aria-selected', 'false');
+                compactBtn?.setAttribute('aria-selected', 'true');
+                ['volumeChartContainer','rsiChartContainer','macdChartContainer'].forEach(id => {
+                    document.getElementById(id)?.classList.add('is-hidden');
+                });
+                if (volumeSeries) volumeSeries.applyOptions({ visible:false });
+                [rsiSeries,rsi70Series,rsi50Series,rsi30Series,macdLineSeries,macdSignalSeries,macdHistogramSeries].forEach(series => series?.applyOptions({ visible:false }));
+            } else {
+                fullBtn?.classList.add('active');
+                fullBtn?.setAttribute('aria-selected', 'true');
+                compactBtn?.setAttribute('aria-selected', 'false');
+                updateIndicatorVisibility();
+            }
+            try { localStorage.setItem('chartViewMode', chartViewMode); } catch {}
+            requestAnimationFrame(() => {
+                resizeAllCharts();
+                syncAllChartRanges();
+            });
+        }
+
         function updateIndicatorVisibility() {
+            if (chartViewMode === 'compact') {
+                applyChartViewMode('compact');
+                return;
+            }
             const volumeVisible = settings.showVolume;
             const rsiVisible = settings.showRSI;
             const macdVisible = settings.showMACD;
@@ -3230,10 +3271,12 @@
 
             const pricePanel = document.getElementById('priceChartContainer');
             const isMobile = window.innerWidth < 768;
-            if (!volumeVisible && !rsiVisible && !macdVisible) {
-                pricePanel.style.height = isMobile ? '248px' : '650px';
+            if (isMobile) {
+                pricePanel.style.height = (!volumeVisible && !rsiVisible && !macdVisible) ? '240px' : (document.body.classList.contains('mobile-trade-collapsed') ? '240px' : '220px');
+            } else if (!volumeVisible && !rsiVisible && !macdVisible) {
+                pricePanel.style.height = '650px';
             } else {
-                pricePanel.style.height = isMobile ? '238px' : '520px';
+                pricePanel.style.height = '520px';
             }
 
             requestAnimationFrame(() => {
