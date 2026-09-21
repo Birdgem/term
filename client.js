@@ -312,7 +312,7 @@
                     attributionLogo: true,
                     background: { type: 'solid', color: '#0d1117' },
                     textColor: '#8b949e',
-                    fontSize: 10,
+                    fontSize: 9,
                     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                 },
                 grid: {
@@ -344,9 +344,9 @@
                     timeVisible: showTimeScale,
                     secondsVisible: false,
                     visible: showTimeScale,
-                    barSpacing: window.innerWidth < 768 ? 11.5 : 7.0,
-                    minBarSpacing: window.innerWidth < 768 ? 7.0 : 2.5,
-                    maxBarSpacing: window.innerWidth < 768 ? 18 : 16,
+                    barSpacing: window.innerWidth < 768 ? 13.0 : 7.0,
+                    minBarSpacing: window.innerWidth < 768 ? 8.5 : 2.5,
+                    maxBarSpacing: window.innerWidth < 768 ? 20 : 16,
                     rightOffset: 3,
                 },
                 handleScale: true,
@@ -412,7 +412,7 @@
                 borderUpColor: '#0ecb81',
                 wickDownColor: '#f6465d',
                 wickUpColor: '#0ecb81',
-                borderVisible: false,
+                borderVisible: true,
                 wickVisible: true,
                 priceLineVisible: true,
                 priceFormat: {
@@ -3231,9 +3231,9 @@
             const pricePanel = document.getElementById('priceChartContainer');
             const isMobile = window.innerWidth < 768;
             if (!volumeVisible && !rsiVisible && !macdVisible) {
-                pricePanel.style.height = isMobile ? '460px' : '650px';
+                pricePanel.style.height = isMobile ? '248px' : '650px';
             } else {
-                pricePanel.style.height = isMobile ? '340px' : '520px';
+                pricePanel.style.height = isMobile ? '238px' : '520px';
             }
 
             requestAnimationFrame(() => {
