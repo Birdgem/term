@@ -1,12 +1,10 @@
-# Trading Terminal Stage 5.31.4 — Patterns 10 Visible
+# Trading Terminal Stage 5.31.5 — Smooth Price
 
-Base: Stage 5.31.3.
+Base: Stage 5.31.4 Patterns 10 Visible.
 
-Fix:
-- The 10-candle chart filter is now applied inside `detectAdvancedPatterns()` itself.
-- Pattern Center still receives the full 100-candle history.
-- Chart markers are only the latest pattern instance per type found in the last 10 candles.
-- Maximum 7 pattern markers.
-- Markers use short readable labels (IB, BE, DB, etc.) instead of long pattern names.
-- Markers are sorted chronologically before being sent to Lightweight Charts.
-- Volume anomaly V markers remain separate.
+Realtime price fix:
+- The chart is updated from the Bybit kline stream only.
+- Ticker `lastPrice` is used for the live quote/trading UI and no longer mutates the chart candle.
+- `markPrice` is stored separately as `liveMarkPrice`.
+- This removes the visible jump caused by alternating ticker lastPrice and kline close updates.
+- Pattern Center / 10-candle chart pattern behavior, Volume Anomaly V, S/R, indicators and trading mechanics are otherwise unchanged.
